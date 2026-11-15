@@ -118,8 +118,8 @@ header .sp{flex:1}
 .detail .big .fb{font-size:16px;padding:10px}
 .detail .side{flex:1;display:flex;flex-direction:column;gap:8px;font-size:13px}
 .detail .side .nm{font-size:16px;font-weight:800;line-height:1.3;padding-right:26px}
-.spec{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:6px 10px;margin:12px 0 0;font-size:13px;background:#f6f4ef;border-radius:8px;padding:10px 12px}
-.abil{margin-top:8px;font-size:12.5px;line-height:1.6;color:#333;background:#fff;border:1px solid #eee;border-radius:8px;padding:8px 12px}
+.spec{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:4px 8px;margin:10px 0 0;font-size:12px;line-height:1.4;background:#f6f4ef;border-radius:8px;padding:10px 12px}
+.abil{margin-top:8px;font-size:12px;line-height:1.55;color:#333;background:#fff;border:1px solid #eee;border-radius:8px;padding:7px 11px}
 .abil p{margin:0 0 3px}
 .spec dt{color:#999;white-space:nowrap}.spec dd{margin:0;color:#333;word-break:break-all}
 .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;color:#fff;margin-right:4px}
@@ -131,10 +131,13 @@ header .sp{flex:1}
 .side .alts .alt{width:calc(50% - 3px);min-width:54px}
 .side .alts.more{-webkit-mask-image:linear-gradient(to right,#000 80%,transparent);mask-image:linear-gradient(to right,#000 80%,transparent)}
 .side .alts.more.end{-webkit-mask-image:none;mask-image:none}
-.counter{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:12px}
-.counter .cb{width:46px;height:46px;border-radius:50%;border:2px solid var(--accent2);background:none;color:var(--accent2);font-size:26px;line-height:1}
+.counter{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:10px}
+/* モーダル下部に固定するボタン列（上の内容だけスクロール） */
+.sfoot{position:sticky;bottom:-16px;margin-left:-16px;margin-right:-16px;margin-bottom:-16px;padding:10px 16px 14px;background:#fff;
+  box-shadow:0 -6px 12px -8px rgba(0,0,0,.25);z-index:2}
+.counter .cb{width:44px;height:44px;border-radius:50%;border:2px solid var(--accent2);background:none;color:var(--accent2);font-size:26px;line-height:1}
 .counter .cb:disabled{opacity:.3}
-.counter .num{font-size:40px;font-weight:800;min-width:40px;text-align:center}
+.counter .num{font-size:36px;font-weight:800;min-width:40px;text-align:center}
 .counter .of{font-size:16px;color:#666}
 
 /* analysis */
@@ -218,7 +221,7 @@ input.txt{border:1px solid #ccc;border-radius:6px;padding:9px;font-size:15px;fle
   <div class="lbl">レアリティ</div><div class="chips" id="fRarity"></div>
   <div class="lbl">収録</div><div class="chips" id="fSet"></div>
   <div class="lbl">表示</div><div class="chips" id="fMisc"></div>
-  <div class="row"><button class="btn ghost" id="fReset">リセット</button><div style="flex:1"></div><button class="btn" data-close>決定</button></div>
+  <div class="row sfoot"><button class="btn ghost" id="fReset">リセット</button><div style="flex:1"></div><button class="btn" data-close>決定</button></div>
 </div></div>
 
 <!-- sort -->
@@ -789,8 +792,7 @@ function renderDetail(){
           <dt>収録</dt><dd>${esc(c.packL)||"-"}</dd>
         </dl>
     ${c.text?`<div class="abil">${c.text.split(" / ").map(x=>`<p>${esc(x)}</p>`).join("")}</div>`:""}
-    <div style="text-align:center;font-size:12px;color:#666;margin-top:10px">デッキ内</div>
-    <div class="counter">
+    <div class="counter sfoot">
       <button class="cb" id="dMinus" ${n?"":"disabled"}>−</button>
       <span class="num">${n}</span><span class="of">/ ${NAME_MAX}枚</span>
       <button class="cb" id="dPlus" ${nn>=NAME_MAX||deck.length>=DECK_MAX?"disabled":""}>＋</button>

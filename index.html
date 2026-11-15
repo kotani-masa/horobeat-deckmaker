@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="referrer" content="no-referrer">
+<title>ホロビート デッキメーカー</title>
+<style>
+:root{
+  --bg:#0d0d10; --panel:#16161b; --ink:#f3efe6; --muted:#9a968c;
+  --accent:#d6402b; --accent2:#2c9aa8; --gold:#c9a24a;
+  --red:#d6402b; --green:#3f9a5a; --blue:#2f6fc4; --none:#8a8a8a;
+  --deckbg:#f6f2e9; --stripbg:#d9dcdd;
+  --header:56px; --tabs:46px; --strip:150px; --search:64px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;overflow:hidden;
+  overscroll-behavior:none}
+button{font:inherit;color:inherit;cursor:pointer}
+#deckWrap,#stripWrap,header,.tabs,.alts,.detail .big{user-select:none;-webkit-user-select:none}
+img{-webkit-user-drag:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#app{display:flex;flex-direction:column;height:100%;height:100dvh}
+
+/* header */
+header{height:var(--header);display:flex;align-items:center;padding:0 12px;gap:10px;background:#050507;flex:none}
+.logo{display:flex;flex-direction:column;line-height:1}
+.logo b{font-size:20px;letter-spacing:.08em;font-weight:800}
+.logo b span{color:var(--accent)}
+.logo small{font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:.2em}
+header .sp{flex:1}
+.hbtn{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;padding:4px 6px;color:var(--ink)}
+.hbtn svg{width:22px;height:22px}
+
+/* tabs */
+.tabs{height:var(--tabs);display:flex;align-items:flex-end;padding:0 10px;gap:6px;background:#050507;flex:none}
+.tab{background:var(--deckbg);color:#222;border-radius:8px 8px 0 0;padding:8px 16px;font-size:17px;font-weight:600;display:flex;gap:4px;align-items:baseline}
+.tab .n{font-variant-numeric:tabular-nums}
+.tab .n.ok{color:var(--green)} .tab .n.over{color:var(--accent)}
+.tab small{font-size:12px;color:#777}
+.tabs .sp{flex:1}
+.abtn{background:var(--accent2);border:0;border-radius:6px;color:#fff;padding:5px 12px;margin-bottom:6px;font-size:13px;display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.abtn svg{width:20px;height:20px}
+
+/* deck */
+#deckWrap{flex:1;min-height:0;background:var(--deckbg);overflow-y:auto;position:relative;transition:background .15s}
+#deckWrap.drop{background:#eaf6ee;box-shadow:inset 0 0 0 3px var(--green)}
+#deck{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;padding:8px 6px 20px;max-width:760px;margin:0 auto}
+.dcard{position:relative;aspect-ratio:63/88;border-radius:3px;overflow:hidden;touch-action:none;cursor:grab;
+  box-shadow:0 1px 2px rgba(0,0,0,.35);transition:transform .12s,opacity .12s}
+.dcard.lift{opacity:.3;outline:2px dashed var(--accent2);outline-offset:-2px}
+.dcard.ph{background:rgba(44,154,168,.18);outline:2px dashed var(--accent2);outline-offset:-2px;box-shadow:none}
+.dcard.gone{transform:translateY(60px);opacity:0;transition:transform .12s ease-in,opacity .12s}
+.dcard.flash{animation:flash .5s}
+@keyframes flash{0%{transform:scale(1.15)}100%{transform:scale(1)}}
+.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#8d877a;font-size:14px;text-align:center;pointer-events:none;gap:6px;padding:20px}
+.empty svg{width:40px;height:40px;opacity:.5}
+
+/* remove hint */
+
+
+/* candidate strip */
+#stripWrap{position:relative;height:var(--strip);background:var(--stripbg);flex:none}
+#strip{display:flex;gap:8px;height:100%;padding:10px 10px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;align-items:center}
+.ccard{position:relative;flex:none;height:100%;aspect-ratio:63/88;border-radius:5px;overflow:hidden;touch-action:pan-x;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.ccard.max::after{content:"MAX";position:absolute;inset:0;background:rgba(0,0,0,.55);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;letter-spacing:.1em}
+.badge{position:absolute;right:3px;top:3px;background:var(--accent);color:#fff;font-size:11px;font-weight:800;border-radius:9px;min-width:18px;height:18px;line-height:18px;text-align:center;padding:0 4px;z-index:2}
+#stripInfo{position:absolute;left:10px;top:-22px;font-size:11px;color:#666;pointer-events:none}
+.nohit{color:#666;font-size:14px;padding:0 10px}
+
+/* search */
+.sbar{height:var(--search);display:flex;align-items:center;gap:8px;padding:8px 10px;background:#050507;flex:none}
+.sbox{flex:1;min-width:0;display:flex;align-items:center;background:#fff;border-radius:6px;height:46px;padding:0 10px;gap:6px}
+.sbox svg{width:22px;height:22px;color:var(--accent2);flex:none}
+.sbox input{flex:1;border:0;outline:0;font-size:16px;min-width:0;color:#222;background:none}
+.sbox .clr{border:0;background:#bbb;color:#fff;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:22px;padding:0;display:none}
+.sbox.has .clr{display:block}
+.tbtn{background:var(--accent2);border:0;border-radius:6px;color:#fff;width:68px;white-space:nowrap;height:46px;font-size:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;position:relative}
+.tbtn svg{width:20px;height:20px}
+.tbtn .dot{position:absolute;top:4px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--gold);display:none}
+.tbtn.on .dot{display:block}
+
+/* card face */
+.face{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.fb{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:4px;color:#fff;
+  font-size:10px;line-height:1.15;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.6);word-break:break-all}
+.fb .r{font-size:9px;opacity:.85}
+.c-red .fb{background:linear-gradient(160deg,#e05a40,#7a1d10)}
+.c-green .fb{background:linear-gradient(160deg,#5bb574,#1d4f2c)}
+.c-blue .fb{background:linear-gradient(160deg,#4f8ee0,#173a72)}
+.c-none .fb{background:linear-gradient(160deg,#9a9a9a,#444)}
+
+/* ghost */
+#ghost{position:fixed;z-index:50;pointer-events:none;width:72px;aspect-ratio:63/88;border-radius:5px;overflow:hidden;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);transform:translate(-50%,-60%) rotate(-4deg);display:none}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:none;align-items:center;justify-content:center;padding:14px}
+.modal.open{display:flex}
+.sheet{background:#fff;color:#222;border-radius:10px;width:100%;max-width:520px;max-height:92%;overflow:auto;padding:16px;position:relative}
+.sheet.dark{background:#1b1b20;color:var(--ink)}
+.sheet h3{margin:0 0 12px;font-size:17px}
+.x{position:absolute;right:10px;top:8px;border:0;background:none;font-size:28px;color:var(--accent2);line-height:1}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}
+.chip{border:1px solid #ccc;background:#fff;color:#333;border-radius:16px;padding:6px 12px;font-size:13px}
+.chip.on{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.lbl{font-size:12px;color:#777;font-weight:700}
+.row{display:flex;gap:8px;align-items:center}
+.btn{border:0;border-radius:6px;padding:10px 14px;background:var(--accent2);color:#fff;font-weight:700}
+.btn.ghost{background:#eee;color:#333}
+.btn.red{background:var(--accent)}
+.note{font-size:11px;color:#888;line-height:1.5}
+
+/* detail */
+.detail{display:flex;gap:12px}
+.detail .big{position:relative;width:62%;aspect-ratio:63/88;border-radius:8px;overflow:hidden;flex:none}
+.detail .big .fb{font-size:16px;padding:10px}
+.detail .side{flex:1;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.detail .side .nm{font-size:16px;font-weight:800;line-height:1.3;padding-right:26px}
+.spec{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:6px 10px;margin:12px 0 0;font-size:13px;background:#f6f4ef;border-radius:8px;padding:10px 12px}
+.spec dt{color:#999;white-space:nowrap}.spec dd{margin:0;color:#333;word-break:break-all}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;color:#fff;margin-right:4px}
+.alts{display:flex;gap:6px;overflow-x:auto;padding:10px 0 4px}
+.alts .alt{position:relative;flex:none;width:58px;aspect-ratio:63/88;border-radius:4px;overflow:hidden;border:2px solid transparent}
+.alts .alt.cur{border-color:var(--accent2)}
+.detail .side{min-width:0}
+.side .alts{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;padding:2px 0 6px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.side .alts .alt{width:calc(50% - 3px);min-width:54px}
+.side .alts.more{-webkit-mask-image:linear-gradient(to right,#000 80%,transparent);mask-image:linear-gradient(to right,#000 80%,transparent)}
+.side .alts.more.end{-webkit-mask-image:none;mask-image:none}
+.counter{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:12px}
+.counter .cb{width:46px;height:46px;border-radius:50%;border:2px solid var(--accent2);background:none;color:var(--accent2);font-size:26px;line-height:1}
+.counter .cb:disabled{opacity:.3}
+.counter .num{font-size:40px;font-weight:800;min-width:40px;text-align:center}
+.counter .of{font-size:16px;color:#666}
+
+/* analysis */
+.bars{display:flex;align-items:flex-end;gap:14px;height:150px;border-bottom:1px solid #ccc;padding:0 6px;margin:8px 0}
+.bars .b{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px;font-size:12px}
+.bars .b i{display:block;width:70%;border-radius:4px 4px 0 0;min-height:2px}
+.bars.cost{gap:8px}
+.bars .stk{width:70%;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden}
+.bars .stk i{width:100%;border-radius:0;min-height:0}
+.bars .b span{height:18px}
+.atable{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0 14px}
+.atable td,.atable th{border:1px solid #ddd;padding:6px;text-align:center}
+.atable th{background:#f2f2f2}
+textarea{width:100%;font-size:12px;border:1px solid #ccc;border-radius:6px;padding:8px;font-family:inherit}
+.slist{list-style:none;padding:0;margin:8px 0}
+.slist li{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
+.slist li span{flex:1}
+input.txt{border:1px solid #ccc;border-radius:6px;padding:9px;font-size:15px;flex:1;min-width:0}
+
+#toast{position:fixed;left:50%;bottom:calc(var(--search) + var(--strip) + 14px);transform:translateX(-50%);background:rgba(20,20,24,.92);color:#fff;
+  padding:8px 16px;border-radius:20px;font-size:13px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+#toast.act{pointer-events:auto}
+#toast button{margin-left:12px;border:0;background:none;color:#7fd6e0;font-weight:800;padding:0}
+.dcard .fb{font-size:8px;padding:2px}
+.dcard .fb .r{display:none}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo"><b>HORO<span>BEAT</span> DECK</b><small>ホロビート デッキメーカー</small></div>
+    <div class="sp"></div>
+    <button class="hbtn" id="bClear" title="全削除"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg>全削除</button>
+    <button class="hbtn" id="bSave" title="保存"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3h11l4 4v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 1-2zm2 2v5h9V5H7zm5 8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>保存</button>
+  </header>
+  <div class="tabs">
+    <div class="tab">メイン <span class="n" id="cnt">0</span><small>/50</small></div>
+    <div class="sp"></div>
+    <button class="abtn" id="bArrange" style="background:#555"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h8v2H3zm0 6h12v2H3zm0 6h18v2H3z"/></svg>整列</button>
+    <button class="abtn" id="bAnalyze"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 20V10h3v10H4zm6 0V4h3v16h-3zm6 0v-7h3v7h-3z"/></svg>分析</button>
+  </div>
+  <div id="deckWrap">
+    <div id="deck"></div>
+    <div class="empty" id="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 19V5M5 12l7-7 7 7"/></svg>下のカードを上へドラッグして追加<br><small>デッキのカードはドラッグで並べ替え・下へサッとはじくと削除</small></div>
+  </div>
+  <div id="stripWrap">
+    <div id="stripInfo"></div>
+    <div id="strip"></div>
+  </div>
+  <div class="sbar">
+    <div class="sbox" id="sbox">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+      <input id="q" type="search" placeholder="カード名" autocomplete="off" enterkeyhint="search">
+      <button class="clr" id="qclr">✕</button>
+    </div>
+    <button class="tbtn" id="bFilter"><span class="dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/><circle cx="8" cy="18" r="2" fill="currentColor"/></svg>絞り込み</button>
+    <button class="tbtn" id="bSort"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg>並べ替え</button>
+  </div>
+</div>
+
+<div id="ghost"></div>
+<div id="toast"></div>
+
+<!-- detail -->
+<div class="modal" id="mDetail"><div class="sheet">
+  <button class="x" data-close>✕</button>
+  <div id="detailBody"></div>
+</div></div>
+
+<!-- filter -->
+<div class="modal" id="mFilter"><div class="sheet">
+  <button class="x" data-close>✕</button>
+  <h3>絞り込み</h3>
+  <div class="lbl">カードタイプ</div><div class="chips" id="fType"></div>
+  <div class="lbl">色</div><div class="chips" id="fColor"></div>
+  <div class="lbl">コスト</div><div class="chips" id="fCost"></div>
+  <div class="lbl">レアリティ</div><div class="chips" id="fRarity"></div>
+  <div class="lbl">収録</div><div class="chips" id="fSet"></div>
+  <div class="lbl">表示</div><div class="chips" id="fMisc"></div>
+  <div class="row"><button class="btn ghost" id="fReset">リセット</button><div style="flex:1"></div><button class="btn" data-close>決定</button></div>
+</div></div>
+
+<!-- sort -->
+<div class="modal" id="mSort"><div class="sheet">
+  <button class="x" data-close>✕</button>
+  <h3>並べ替え（候補）</h3>
+  <div class="chips" id="sortChips"></div>
+</div></div>
+
+<!-- analysis -->
+<div class="modal" id="mAnalyze"><div class="sheet">
+  <button class="x" data-close>✕</button>
+  <h3>デッキ分析</h3>
+  <div id="anaBody"></div>
+</div></div>
+
+<!-- save -->
+<div class="modal" id="mSave"><div class="sheet">
+  <button class="x" data-close>✕</button>
+  <h3>保存・読み込み</h3>
+  <div class="row"><input class="txt" id="deckName" placeholder="デッキ名"><button class="btn" id="doSave">保存</button></div>
+  <button class="btn" id="bImage" style="width:100%;margin-top:10px;background:var(--accent)">リストを画像で保存（10×5）</button>
+  <ul class="slist" id="savedList"></ul>
+  <div class="lbl" style="margin-top:12px">デッキコード（共有用）</div>
+  <textarea id="code" rows="3"></textarea>
+  <div class="row" style="margin-top:6px"><button class="btn ghost" id="copyCode">コピー</button><button class="btn ghost" id="copyUrl">共有URLをコピー</button><div style="flex:1"></div><button class="btn" id="loadCode">コードから読込</button></div>
+</div></div>
+
+<!-- image -->
+<div class="modal" id="mImage"><div class="sheet">
+  <button class="x" data-close>✕</button>
+  <h3>デッキ画像</h3>
+  <div id="imgStatus" class="note" style="font-size:13px"></div>
+  <img id="imgOut" style="width:100%;border-radius:6px;display:none;margin:8px 0">
+  <div class="row" id="imgActions" style="display:none"><a class="btn" id="imgDl" download="horobeat_deck.png" style="text-decoration:none">ダウンロード</a><div style="flex:1"></div></div>
+  <p class="note">スマホの場合は、画像を長押しして「画像を保存」でも保存できます。</p>
+</div></div>
+
+<!-- confirm -->
+<div class="modal" id="mConfirm"><div class="sheet" style="max-width:340px">
+  <h3 id="cfMsg"></h3>
+  <div class="row"><div style="flex:1"></div><button class="btn ghost" data-close>キャンセル</button><button class="btn red" id="cfOk">OK</button></div>
+</div></div>
+
+<script>
+/* ===== カードデータ（公式カード検索から取得） =====
+   書式: 画像ID|カード名|カードタイプ|色|コスト|パワー|ブースト|種族|キーワード能力|トリガー|収録先|よみがな
+   画像ID = {収録}-{番号}-{レアリティ}-{イラスト番号}
+   update_cards.mjs を実行するとこのブロックが公式サイトの最新データで置き換わります。 */
+const CARD_SRC = `/*CARDS_BEGIN*/
+pr-031-uc-01|送り犬 クロシバ|ホロビト|赤|3|4000|あり|ユウキ・コミューン||エントリートリガー|大合戦ホロモーションパック 一の巻|おくりいぬくろしば
+pr-032-uc-01|翅けげん|ホロビト|緑|4|4000|なし|ラシャ・ブラッド|バリア|オーバートリガー|大合戦ホロモーションパック 一の巻|はねけげん
+pr-033-uc-01|一本ダタラ|ホロビト|青|5|7000|なし|ウラロジ・ギャング||オーバートリガー|大合戦ホロモーションパック 一の巻|いっぽんだたら
+pr-034-uc-01|童子危うきに近寄らず|ワザ|青|1|0|なし|||ドロートリガー|大合戦ホロモーションパック 一の巻|どうじあやうきにちかよらず
+pr-035-r-01|カオナシライダー|ホロビト|赤|4|7000|あり|フウガ・ファミリー|ダブルダメージ|オーバートリガー|大合戦ホロモーションパック 一の巻|かおなしらいだー
+pr-036-r-01|おぼろ車|ホロビト|緑|5|6000|なし|バクソウ・クラブ||オーバートリガー|大合戦ホロモーションパック 一の巻|おぼろぐるま
+pr-037-r-01|以心電心|ワザ|赤|1|2000|なし||共鳴|ドロートリガー|ホロビート名人戦 優勝賞|いしんでんしん
+hb01-001-c-01|雷獣 レオ|ホロビト|赤|2|4000|なし|ライガ・ファミリー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|らいじゅうれお
+hb01-002-c-01|レオまる|ホロビト|赤|2|2000|あり|ライガ・ファミリー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|れおまる
+hb01-002-dr-01|レオまる|ホロビト|赤|2|2000|あり|ライガ・ファミリー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|れおまる
+hb01-003-c-01|鎌鼬 カマイチ|ホロビト|赤|2|3000|あり|フウガ・ファミリー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|かまいたちかまいち
+hb01-004-c-01|夜さんぽ 七尾っち|ホロビト|赤|2|4000|なし|マボロシ・コミューン||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|よさんぽななお
+hb01-005-c-01|雷獣おとん|ホロビト|赤|3|3000|あり|ライガ・ファミリー|エナ詠み|エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|らいじゅうおとん
+hb01-006-c-01|幻癒師 七尾|ホロビト|赤|3|4000|あり|マボロシ・コミューン||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|げんゆしななお
+hb01-007-c-01|ユウキと鬼熊師匠|ホロビト|赤|3|5000|なし|ユウキ・コミューン||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|ゆうきとおにぐまししょう
+hb01-008-c-01|えんらマダム|ホロビト|赤|4|6000|あり|オウチ・コミューン||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|えんらまだむ
+hb01-009-c-01|ハグレ犬神|ホロビト|赤|5|7000|あり|ナガレモノ||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|はぐれいぬがみ
+hb01-010-c-01|二番戦陣|ワザ|赤|1|3000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|にばんせんじん
+hb01-011-uc-01|シビレ提灯|ホロビト|赤|2|5000|あり|ライガ・ファミリー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|しびれちょうちん
+hb01-012-uc-01|鎌鼬 カマジ|ホロビト|赤|2|2500|あり|フウガ・ファミリー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|かまいたちかまじ
+hb01-013-uc-01|ヒメコと剛腕のヒヒ|ホロビト|赤|3|3000|あり|コンガ・ファミリー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|ひめことごうわんのひひ
+hb01-014-uc-01|ヒナタを導く七尾|ホロビト|赤|3|5000|なし|マボロシ・コミューン||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|ひなたをみちびくななお
+hb01-014-dr-01|ヒナタを導く七尾|ホロビト|赤|3|5000|なし|マボロシ・コミューン||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|ひなたをみちびくななお
+hb01-015-uc-01|ジンと奮雷するレオ|ホロビト|赤|4|4500|なし|ライガ・ファミリー|エナ詠み|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|じんとふんらいするれお
+hb01-016-uc-01|大豆 アズキチ|ホロビト|赤|5|6000|あり|オウチ・コミューン|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|だいずあずきち
+hb01-017-uc-01|えんらムッシュ|ホロビト|赤|6|8500|あり|オウチ・コミューン||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|えんらむっしゅ
+hb01-018-uc-01|獣合 ヒヒヒメ|ホロビト|赤|7|9000|あり|コンガ・ファミリー|ダブルダメージ|ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|びーすとびーとひひひめ
+hb01-019-uc-01|以心電心|ワザ|赤|1|2000|なし||共鳴|ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|いしんでんしん
+hb01-020-uc-01|和気愛々|ワザ|赤|1|3000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|わきあいあい
+hb01-021-r-01|ヨスズメ|ホロビト|赤|3|5500|あり|フウガ・ファミリー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|よすずめ
+hb01-022-r-01|カオナシライダー|ホロビト|赤|4|7000|あり|フウガ・ファミリー|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|かおなしらいだー
+hb01-023-r-01|滅獣 レオ|ホロビト|赤|5|4000|あり|ライガ・ファミリー||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ほろびーすとれお
+hb01-024-r-01|夫婦円舞のえんら・えんら|ホロビト|赤|5|5000|あり|オウチ・コミューン|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ふうふえんまんのえんらえんら
+hb01-025-r-01|滅獣 七尾|ホロビト|赤|6|7000|あり|マボロシ・コミューン|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ほろびーすとななお
+hb01-026-r-01|鬼合 ユウ鬼|ホロビト|赤|6|12000|あり|ユウキ・コミューン||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|おにびーとゆうき
+hb01-027-r-01|雷獣おかん|ホロビト|赤|8|12000|あり|ライガ・ファミリー|ダブルダメージ|ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|らいじゅうおかん
+hb01-028-r-01|合術 雷桜迅雷|ワザ|赤|2|4000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|びーとばーすとらいおうじんらい
+hb01-028-dr-01|合術 雷桜迅雷|ワザ|赤|2|4000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|びーとばーすとらいおうじんらい
+hb01-029-r-01|心斬一転|ワザ|赤|2|0|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|しんきいってん
+hb01-030-sr-01|同胞よ集え！ レオ＆ジン|ホロビト|赤|3|5500|なし|ライガ・ファミリー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|ともよつどえ!れおあんどじん
+hb01-030-dr-01|同胞よ集え！ レオ＆ジン|ホロビト|赤|3|5500|なし|ライガ・ファミリー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|ともよつどえ!れおあんどじん
+hb01-031-sr-01|妖狐 七尾|ホロビト|赤|4|5000|あり|マボロシ・コミューン||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ようこななお
+hb01-031-dr-01|妖狐 七尾|ホロビト|赤|4|5000|あり|マボロシ・コミューン||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ようこななお
+hb01-032-sr-01|ようこそ！ カマブキ商會|ホロビト|赤|5|6000|なし|フウガ・ファミリー||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ようこそ!かまぶきしょうかい
+hb01-032-dr-01|ようこそ！ カマブキ商會|ホロビト|赤|5|6000|なし|フウガ・ファミリー||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ようこそ!かまぶきしょうかい
+hb01-033-sr-01|雷迅合身 レオジン|ホロビト|赤|6|7000|なし|ライガ・ファミリー|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|らいじんおーばーびーとれおじん
+hb01-033-dr-01|雷迅合身 レオジン|ホロビト|赤|6|7000|なし|ライガ・ファミリー|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|らいじんおーばーびーとれおじん
+hb01-033-sec-01|雷迅合身 レオジン|ホロビト|赤|6|7000|なし|ライガ・ファミリー|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|らいじんおーばーびーとれおじん
+hb01-033-sec-02|雷迅合身 レオジン|ホロビト|赤|6|7000|なし|ライガ・ファミリー|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|らいじんおーばーびーとれおじん
+hb01-034-c-01|しなずいさま|ホロビト|緑|2|2000|なし|スザク・ブラッド||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|しなずいさま
+hb01-034-dr-01|しなずいさま|ホロビト|緑|2|2000|なし|スザク・ブラッド||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|しなずいさま
+hb01-035-c-01|不死の不死火|ホロビト|緑|2|3000|あり|スザク・ブラッド||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|しなずのしなずい
+hb01-036-c-01|つくものジャンボ|ホロビト|緑|2|4000|なし|ユルフワ・クラブ||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|つくものじゃんぼ
+hb01-037-c-01|風船じゃんぷぅ|ホロビト|緑|2|3000|なし|ユルフワ・クラブ||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|ふうせんじゃんぷう
+hb01-038-c-01|イツキと怪樹ふるそま|ホロビト|緑|4|6000|あり|タイジュ・ブラッド||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|いつきとかいじゅふるそま
+hb01-039-c-01|森霊 けげん|ホロビト|緑|4|5000|あり|ラシャ・ブラッド|バリア|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|しんれいけげん
+hb01-040-c-01|独火魔|ホロビト|緑|5|7000|あり|ナガレモノ||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ひとりま
+hb01-041-c-01|おぼろタクシー|ホロビト|緑|6|7000|なし|バクソウ・クラブ|エナ詠み|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|おぼろたくしー
+hb01-042-c-01|私怨にて斬る！|ワザ|緑|1|2000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|しえんにてきる!
+hb01-043-c-01|１か！ ２か！ どっちなんだい！|ワザ|緑|1|3000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|いちか!にか!どっちなんだい!
+hb01-044-uc-01|おんぼろ車|ホロビト|緑|3|7000|なし|バクソウ・クラブ||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|おんぼろぐるま
+hb01-045-uc-01|タヴェルナと二口女|ホロビト|緑|3|4000|あり|ビックリ・クラブ||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|たヴぇるなとふたくちがーる
+hb01-046-uc-01|怪鳥 ヒザマ|ホロビト|緑|4|5000|あり|スザク・ブラッド||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|かいちょうひざま
+hb01-047-uc-01|ショウと夜に翔ける不死火|ホロビト|緑|5|7000|なし|スザク・ブラッド|エナ詠み|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|しょうとよるにかけるしなずい
+hb01-048-uc-01|ポツンといっけん爺|ホロビト|緑|5|8000|あり|タイジュ・ブラッド||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ぽつんといっけんじい
+hb01-049-uc-01|ふわふわイロハとぷかぷかジャンボ|ホロビト|緑|5|6000|なし|ユルフワ・クラブ||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ふわふわいろはとぷかぷかじゃんぼ
+hb01-049-dr-01|ふわふわイロハとぷかぷかジャンボ|ホロビト|緑|5|6000|なし|ユルフワ・クラブ||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ふわふわいろはとぷかぷかじゃんぼ
+hb01-050-uc-01|喰合 タヴェール|ホロビト|緑|6|7500|あり|ビックリ・クラブ|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|くいびーとたヴぇーる
+hb01-051-uc-01|バクヘリコン|ホロビト|緑|8|10000|あり|ユルフワ・クラブ|ダブルダメージ|ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ばくへりこん
+hb01-052-uc-01|勝ちにいくぞ…！|ワザ|緑|1|2000|なし||共鳴|ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|かちにいくぞ・・・!
+hb01-053-uc-01|びゅーんといくジャン！|ワザ|緑|1|2000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|びゅーんといくじゃん!
+hb01-054-r-01|稀有ケゲン|ホロビト|緑|3|3000|あり|ラシャ・ブラッド|バリア|エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|れあけげん
+hb01-055-r-01|ビュンドローン|ホロビト|緑|4|6000|なし|ユルフワ・クラブ||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|びゅんどろーん
+hb01-056-r-01|怪鳥 シビロ|ホロビト|緑|4|5000|あり|スザク・ブラッド||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|かいちょうしびろ
+hb01-057-r-01|滅獣 不死火|ホロビト|緑|5|7000|なし|スザク・ブラッド||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ほろびーすとしなずい
+hb01-058-r-01|おぼろ車|ホロビト|緑|5|6000|なし|バクソウ・クラブ||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|おぼろぐるま
+hb01-059-r-01|イロハと巡航ジャンボ|ホロビト|緑|6|6000|なし|ユルフワ・クラブ|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|いろはととんでけじゃんぼ
+hb01-060-r-01|森合 フルツキ|ホロビト|緑|7|9000|あり|タイジュ・ブラッド||ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|もりびーとふるつき
+hb01-061-r-01|樹霊千年 巨ダマ|ホロビト|緑|10|18000|なし|タイジュ・ブラッド||ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|じゅれいせんねんきょだま
+hb01-062-r-01|合術 不死の永炎！|ワザ|緑|2|4000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|びーとばーすとしなずのえいえん!
+hb01-062-dr-01|合術 不死の永炎！|ワザ|緑|2|4000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|びーとばーすとしなずのえいえん!
+hb01-063-sr-01|一撃先戦！ 不死火＆ショウ|ホロビト|緑|5|7000|あり|スザク・ブラッド|エナ詠み|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|いちげきせんせん!しなずいあんどしょう
+hb01-063-dr-01|一撃先戦！ 不死火＆ショウ|ホロビト|緑|5|7000|あり|スザク・ブラッド|エナ詠み|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|いちげきせんせん!しなずいあんどしょう
+hb01-064-sr-01|滅獣 ジャンボ|ホロビト|緑|8|12000|なし|ユルフワ・クラブ|ダブルダメージ|ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ほろびーすとじゃんぼ
+hb01-064-dr-01|滅獣 ジャンボ|ホロビト|緑|8|12000|なし|ユルフワ・クラブ|ダブルダメージ|ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ほろびーすとじゃんぼ
+hb01-065-sr-01|霊炎合身 不死火翔|ホロビト|緑|9|14000|なし|スザク・ブラッド|ダブルダメージ|ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ぶれいずおーばーびーとしなずいしょう
+hb01-065-dr-01|霊炎合身 不死火翔|ホロビト|緑|9|14000|なし|スザク・ブラッド|ダブルダメージ|ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ぶれいずおーばーびーとしなずいしょう
+hb01-066-sr-01|首領デカケゲン|ホロビト|緑|9|10000|あり|ラシャ・ブラッド|バリア|ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|どんでかけげん
+hb01-066-dr-01|首領デカケゲン|ホロビト|緑|9|10000|あり|ラシャ・ブラッド|バリア|ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|どんでかけげん
+hb01-067-c-01|くろぼ〜ちゃん|ホロビト|青|2|2000|なし|ジャスティス・オーダー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|くろぼ～ちゃん
+hb01-067-dr-01|くろぼ〜ちゃん|ホロビト|青|2|2000|なし|ジャスティス・オーダー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|くろぼ～ちゃん
+hb01-068-c-01|天狗 九郎坊|ホロビト|青|2|3000|あり|ジャスティス・オーダー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|てんぐくろうぼう
+hb01-069-c-01|とうふ小僧|ホロビト|青|2|4000|なし|ギルド・オーダー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|とうふこぞう
+hb01-070-c-01|脅し屋多田と三本ダタラ|ホロビト|青|2|2000|なし|ウラロジ・ギャング||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|おどしやただとさんぼんだたら
+hb01-071-c-01|ガシャのすけ|ホロビト|青|2|2000|なし|ドクロ・ギャング||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|がしゃのすけ
+hb01-072-c-01|孤独ノ風|ホロビト|青|3|5000|なし|ナガレモノ||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|ろんりーのかぜ
+hb01-073-c-01|義勇のベニテン|ホロビト|青|4|5000|あり|ジャスティス・オーダー|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ぎゆうのべにてん
+hb01-074-c-01|骸のガシャ|ホロビト|青|5|7000|あり|ドクロ・ギャング||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|どくろのがしゃ
+hb01-075-c-01|石の上にも三念|ワザ|青|1|2000|なし||エナ詠み|ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|いしのうえにもさんねん
+hb01-076-c-01|無知の視|ワザ|青|1|3000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|むちのし
+hb01-077-uc-01|山姥ヤマヒメ|ホロビト|青|3|4500|なし|チャラ・オーダー||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|やまんばやまひめ
+hb01-078-uc-01|ナグレと用心棒ヘッドブル|ホロビト|青|3|3000|なし|ウラロジ・ギャング||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|なぐれとようじんぼうへっどぶる
+hb01-078-dr-01|ナグレと用心棒ヘッドブル|ホロビト|青|3|3000|なし|ウラロジ・ギャング||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|なぐれとようじんぼうへっどぶる
+hb01-079-uc-01|義彦と正義の九郎坊|ホロビト|青|4|4000|なし|ジャスティス・オーダー|エナ詠み|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|よしひことせいぎのくろうぼう
+hb01-080-uc-01|カワエロ|ホロビト|青|4|4000|あり|ウラロジ・ギャング||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|かわえろ
+hb01-081-uc-01|カッパダイバー|ホロビト|青|6|7500|あり|ウラロジ・ギャング|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|かっぱだいばー
+hb01-082-uc-01|闘牛合 ヘッドナグル|ホロビト|青|6|7000|なし|ウラロジ・ギャング||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ぶるびーとへっどなぐる
+hb01-083-uc-01|三味線鬼灯とMCガシャ|ホロビト|青|7|9000|あり|ドクロ・ギャング|ダブルダメージ|ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|しゃみせんほおずきとえむしーがしゃ
+hb01-084-uc-01|義を持って天を統べる|ワザ|青|1|2000|なし||共鳴|ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|ぎをもっててんをすべる
+hb01-085-uc-01|魂のまにまに|ワザ|青|2|4000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|えなのまにまに
+hb01-086-uc-01|あさき夢見じ 世はyo！ yo！|ワザ|青|3|7000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|あさきゆめみじよはよー!よー!
+hb01-087-r-01|豆腐ナイスガイ|ホロビト|青|3|4000|あり|ギルド・オーダー|エナ詠み|エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|とうふないすがい
+hb01-088-r-01|来たる！ 恐怖の蜘蛛|ホロビト|青|3|3000|なし|スパイダー・ギャング||エントリートリガー|HB-BP01 拡張パック第一弾 ホロビート|きたる!きょうふのくも
+hb01-089-r-01|斬ムクロ|ホロビト|青|4|2000|なし|ドクロ・ギャング||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ぎりむくろ
+hb01-090-r-01|船長イクチ|ホロビト|青|5|7000|なし|ウラロジ・ギャング||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|きゃぷてんいくち
+hb01-091-r-01|滅獣 九郎坊|ホロビト|青|6|7000|あり|ジャスティス・オーダー|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ほろびーすとくろうぼう
+hb01-092-r-01|脅合 三本タダタラ|ホロビト|青|6|8000|なし|ウラロジ・ギャング||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|おどすびーとさんぼんただたら
+hb01-093-r-01|八参る 鬼灯＆ガシャ|ホロビト|青|8|10000|あり|ドクロ・ギャング|ダブルダメージ|ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|えいとまいるほおずきあんどがしゃ
+hb01-094-r-01|合術 うつし身の撃|ワザ|青|2|4000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|びーとばーすとうつしみのげき
+hb01-094-dr-01|合術 うつし身の撃|ワザ|青|2|4000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|びーとばーすとうつしみのげき
+hb01-095-r-01|行くも・ザ・ループ|ワザ|青|2|3000|なし|||ドロートリガー|HB-BP01 拡張パック第一弾 ホロビート|ゆくもざるーぷ
+hb01-096-sr-01|秩序の守り手 九郎坊＆義彦|ホロビト|青|5|7000|なし|ジャスティス・オーダー||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ちつじょのまもりてくろうぼうあんどよしひこ
+hb01-096-dr-01|秩序の守り手 九郎坊＆義彦|ホロビト|青|5|7000|なし|ジャスティス・オーダー||オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ちつじょのまもりてくろうぼうあんどよしひこ
+hb01-097-sr-01|正義合身 義郎坊|ホロビト|青|6|6000|なし|ジャスティス・オーダー|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|せいぎおーばーびーとぎろうぼう
+hb01-097-dr-01|正義合身 義郎坊|ホロビト|青|6|6000|なし|ジャスティス・オーダー|ダブルダメージ|オーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|せいぎおーばーびーとぎろうぼう
+hb01-098-sr-01|大河童 ガタラ|ホロビト|青|7|6000|なし|ウラロジ・ギャング||ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|おおがっぱがたら
+hb01-098-dr-01|大河童 ガタラ|ホロビト|青|7|6000|なし|ウラロジ・ギャング||ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|おおがっぱがたら
+hb01-099-sr-01|滅獣 ガシャドクロ|ホロビト|青|8|8000|あり|ドクロ・ギャング||ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ほろびーすとがしゃどくろ
+hb01-099-dr-01|滅獣 ガシャドクロ|ホロビト|青|8|8000|あり|ドクロ・ギャング||ラストオーバートリガー|HB-BP01 拡張パック第一弾 ホロビート|ほろびーすとがしゃどくろ
+hd01-001-c-01|レオまる|ホロビト|赤|2|2000|あり|ライガ・ファミリー||エントリートリガー|HB-SD01 スタートデッキ レオジン 赤|れおまる
+hd01-002-c-01|雷獣 レオ|ホロビト|赤|2|4000|なし|ライガ・ファミリー||エントリートリガー|HB-SD01 スタートデッキ レオジン 赤|らいじゅうれお
+hd01-003-c-01|雷徒キュウソと内野ジロウ|ホロビト|赤|2|3000|あり|ライガ・ファミリー||エントリートリガー|HB-SD01 スタートデッキ レオジン 赤|らいときゅうそとうちのじろう
+hd01-004-c-01|かたきらうわ|ホロビト|赤|2|4000|なし|ナガレモノ||エントリートリガー|HB-SD01 スタートデッキ レオジン 赤|かたきらうわ
+hd01-005-c-01|疾風のカマイチ|ホロビト|赤|3|3000|あり|フウガ・ファミリー||エントリートリガー|HB-SD01 スタートデッキ レオジン 赤|はやてのかまいち
+hd01-006-c-01|幻癒師 七尾|ホロビト|赤|3|4000|あり|マボロシ・コミューン||エントリートリガー|HB-SD01 スタートデッキ レオジン 赤|げんゆしななお
+hd01-007-c-01|Jr.赤えい|ホロビト|赤|4|4000|あり|ライガ・ファミリー||オーバートリガー|HB-SD01 スタートデッキ レオジン 赤|じゅにああかえい
+hd01-008-c-01|電光攻火|ワザ|赤|2|5000|なし|||ドロートリガー|HB-SD01 スタートデッキ レオジン 赤|でんこうせっか
+hd01-009-uc-01|怪機 センプウジン|ホロビト|赤|2|2500|あり|フウガ・ファミリー||エントリートリガー|HB-SD01 スタートデッキ レオジン 赤|かいきせんぷうじん
+hd01-010-uc-01|ウキウキ学生 アカナー|ホロビト|赤|3|4000|あり|コンガ・ファミリー||エントリートリガー|HB-SD01 スタートデッキ レオジン 赤|うきうきがくせいあかなー
+hd01-011-uc-01|ジンと奮雷するレオ|ホロビト|赤|4|4500|なし|ライガ・ファミリー|エナ詠み|オーバートリガー|HB-SD01 スタートデッキ レオジン 赤|じんとふんらいするれお
+hd01-012-uc-01|鼠合 キュウジロウ|ホロビト|赤|5|6000|なし|ライガ・ファミリー||オーバートリガー|HB-SD01 スタートデッキ レオジン 赤|ねずびーときゅうじろう
+hd01-013-uc-01|以心電心|ワザ|赤|1|2000|なし||共鳴|ドロートリガー|HB-SD01 スタートデッキ レオジン 赤|いしんでんしん
+hd01-014-r-01|ヒナタと七尾|ホロビト|赤|4|5000|あり|マボロシ・コミューン||オーバートリガー|HB-SD01 スタートデッキ レオジン 赤|ひなたとななお
+hd01-015-r-01|臨戦！ レオ|ホロビト|赤|5|6000|あり|ライガ・ファミリー||オーバートリガー|HB-SD01 スタートデッキ レオジン 赤|すたんばい!れお
+hd01-016-r-01|雷獣おかん|ホロビト|赤|8|12000|あり|ライガ・ファミリー|ダブルダメージ|ラストオーバートリガー|HB-SD01 スタートデッキ レオジン 赤|らいじゅうおかん
+hd01-017-sr-01|雷合 レオジン|ホロビト|赤|7|11000|あり|ライガ・ファミリー|ダブルダメージ|ラストオーバートリガー|HB-SD01 スタートデッキ レオジン 赤|らいびーとれおじん
+hd01-017-dr-01|雷合 レオジン|ホロビト|赤|7|11000|あり|ライガ・ファミリー|ダブルダメージ|ラストオーバートリガー|HB-SD01 スタートデッキ レオジン 赤|らいびーとれおじん
+hd02-001-c-01|しなずいさま|ホロビト|緑|2|2000|なし|スザク・ブラッド||エントリートリガー|HB-SD02 スタートデッキ 不死火 緑|しなずいさま
+hd02-002-c-01|けうけげん|ホロビト|緑|2|2000|あり|ラシャ・ブラッド|バリア|エントリートリガー|HB-SD02 スタートデッキ 不死火 緑|けうけげん
+hd02-003-c-01|つくものジャンボ|ホロビト|緑|2|4000|なし|ユルフワ・クラブ||エントリートリガー|HB-SD02 スタートデッキ 不死火 緑|つくものじゃんぼ
+hd02-004-c-01|怪鳥ふらり火と理系インテ|ホロビト|緑|3|5000|なし|スザク・ブラッド||エントリートリガー|HB-SD02 スタートデッキ 不死火 緑|かいちょうふらりびとりけいいんて
+hd02-005-c-01|ヒトダマモルン|ホロビト|緑|4|5500|なし|ナガレモノ|バリア|オーバートリガー|HB-SD02 スタートデッキ 不死火 緑|ひとだまもるん
+hd02-006-c-01|金づち乱坊|ホロビト|緑|7|9000|あり|スザク・ブラッド|ダブルダメージ|ラストオーバートリガー|HB-SD02 スタートデッキ 不死火 緑|かなづちらんぼー
+hd02-007-c-01|イツキと怪樹ふるそま|ホロビト|緑|4|6000|あり|タイジュ・ブラッド||オーバートリガー|HB-SD02 スタートデッキ 不死火 緑|いつきとかいじゅふるそま
+hd02-008-c-01|翠炎よ、燃えさかれ！|ワザ|緑|2|5000|なし|||ドロートリガー|HB-SD02 スタートデッキ 不死火 緑|ひえんよ、もえさかれ!
+hd02-009-uc-01|すやすやジャンボ|ホロビト|緑|2|2000|あり|ユルフワ・クラブ||エントリートリガー|HB-SD02 スタートデッキ 不死火 緑|すやすやじゃんぼ
+hd02-010-uc-01|ケサランパサラン|ホロビト|緑|3|4000|あり|ラシャ・ブラッド|バリア|エントリートリガー|HB-SD02 スタートデッキ 不死火 緑|けさらんぱさらん
+hd02-011-uc-01|ショウと夜に翔ける不死火|ホロビト|緑|5|7000|なし|スザク・ブラッド|エナ詠み|オーバートリガー|HB-SD02 スタートデッキ 不死火 緑|しょうとよるにかけるしなずい
+hd02-012-uc-01|学合 フラリンテ|ホロビト|緑|5|6000|なし|スザク・ブラッド||オーバートリガー|HB-SD02 スタートデッキ 不死火 緑|まなびーとふらりんて
+hd02-013-uc-01|勝ちにいくぞ…！|ワザ|緑|1|2000|なし||共鳴|ドロートリガー|HB-SD02 スタートデッキ 不死火 緑|かちにいくぞ・・・!
+hd02-014-r-01|滅獣 不死火|ホロビト|緑|5|7000|なし|スザク・ブラッド||オーバートリガー|HB-SD02 スタートデッキ 不死火 緑|ほろびーすとしなずい
+hd02-015-r-01|イロハとジャンボ|ホロビト|緑|7|9000|あり|ユルフワ・クラブ||ラストオーバートリガー|HB-SD02 スタートデッキ 不死火 緑|いろはとじゃんぼ
+hd02-016-r-01|執燃！ 不死火|ホロビト|緑|8|11000|あり|スザク・ブラッド|ダブルダメージ|ラストオーバートリガー|HB-SD02 スタートデッキ 不死火 緑|ねばぎば!しなずい
+hd02-017-sr-01|霊合 不死火翔|ホロビト|緑|9|12000|あり|スザク・ブラッド|ダブルダメージ|ラストオーバートリガー|HB-SD02 スタートデッキ 不死火 緑|れいずびーとしなずいしょう
+hd02-017-dr-01|霊合 不死火翔|ホロビト|緑|9|12000|あり|スザク・ブラッド|ダブルダメージ|ラストオーバートリガー|HB-SD02 スタートデッキ 不死火 緑|れいずびーとしなずいしょう
+pr-028-uc-01|ジンと奮雷するレオ|ホロビト|赤|4|4500|なし|ライガ・ファミリー|エナ詠み|オーバートリガー|PRカード 【HB-BP01 拡張パック第一弾 ホロビート BOX特典】|じんとふんらいするれお
+pr-029-uc-01|ショウと夜に翔ける不死火|ホロビト|緑|5|7000|なし|スザク・ブラッド|エナ詠み|オーバートリガー|PRカード 【HB-BP01 拡張パック第一弾 ホロビート BOX特典】|しょうとよるにかけるしなずい
+pr-030-uc-01|義彦と正義の九郎坊|ホロビト|青|4|4000|なし|ジャスティス・オーダー|エナ詠み|オーバートリガー|PRカード 【HB-BP01 拡張パック第一弾 ホロビート BOX特典】|よしひことせいぎのくろうぼう
+pr-002-c-01|雷のレオ|ホロビト|赤|2|3500|なし|ライガ・ファミリー||エントリートリガー|コロコロコミック付録デッキ2026 赤|いかづちのれお
+pr-003-c-01|お寺の猫 レオまる|ホロビト|赤|2|2500|あり|ライガ・ファミリー||エントリートリガー|コロコロコミック付録デッキ2026 赤|おてらのねこれおまる
+pr-004-c-01|弾田ダンクとバケゾウリ|ホロビト|赤|2|3000|なし|フウガ・ファミリー||エントリートリガー|コロコロコミック付録デッキ2026 赤|だんだだんくとばけぞうり
+pr-005-uc-01|運命の出会い レオとジン|ホロビト|赤|2|3000|なし|ライガ・ファミリー||エントリートリガー|コロコロコミック付録デッキ2026 赤|うんめいのであいれおとじん
+pr-006-uc-01|お出迎え 七尾とヒナタ|ホロビト|赤|3|2000|あり|マボロシ・コミューン||エントリートリガー|コロコロコミック付録デッキ2026 赤|おでむかえななおとひなた
+pr-007-c-01|イタチのかまいち|ホロビト|赤|3|4500|あり|フウガ・ファミリー||エントリートリガー|コロコロコミック付録デッキ2026 赤|いたちのかまいち
+pr-008-c-01|ベトベトくん|ホロビト|赤|4|3000|なし|ナガレモノ||オーバートリガー|コロコロコミック付録デッキ2026 赤|べとべとくん
+pr-009-c-01|連打！ カミナリ小僧|ホロビト|赤|5|5000|あり|ライガ・ファミリー|ダブルダメージ|オーバートリガー|コロコロコミック付録デッキ2026 赤|れんだ!かみなりこぞう
+pr-010-uc-01|弾合 ダンゾウ|ホロビト|赤|6|6000|あり|フウガ・ファミリー||オーバートリガー|コロコロコミック付録デッキ2026 赤|だんくびーとだんぞう
+pr-011-r-01|合身 レオジン|ホロビト|赤|7|9000|あり|ライガ・ファミリー|ダブルダメージ|ラストオーバートリガー|コロコロコミック付録デッキ2026 赤|おーばーびーとれおじん
+pr-012-c-01|快復祈願|ワザ|赤|1|1000|なし|||ドロートリガー|コロコロコミック付録デッキ2026 赤|かいふくきがん
+pr-013-c-01|電光攻火|ワザ|赤|2|5000|なし|||ドロートリガー|コロコロコミック付録デッキ2026 赤|でんこうせっか
+pr-014-uc-01|雷風怒濤|ワザ|赤|3|6000|なし|||ドロートリガー|コロコロコミック付録デッキ2026 赤|らいふうどとう
+pr-015-c-01|炎の不死火|ホロビト|緑|2|1000|なし|スザク・ブラッド||エントリートリガー|コロコロコミック付録デッキ2026 緑|ほのおのしなずい
+pr-016-c-01|ソロキャンしなずいさま|ホロビト|緑|2|2000|あり|スザク・ブラッド||エントリートリガー|コロコロコミック付録デッキ2026 緑|そろきゃんしなずいさま
+pr-017-c-01|麺屋 力とビシャガツク|ホロビト|緑|2|2500|あり|ラシャ・ブラッド||エントリートリガー|コロコロコミック付録デッキ2026 緑|めんやちからとびしゃがつく
+pr-018-uc-01|苔ぼうず|ホロビト|緑|3|4000|なし|ラシャ・ブラッド|バリア|エントリートリガー|コロコロコミック付録デッキ2026 緑|こけぼうず
+pr-019-c-01|怪鳥 ヨゲン|ホロビト|緑|5|6000|あり|スザク・ブラッド||オーバートリガー|コロコロコミック付録デッキ2026 緑|かいちょうよげん
+pr-020-c-01|必然の出会い 不死火とショウ|ホロビト|緑|5|5000|なし|スザク・ブラッド||オーバートリガー|コロコロコミック付録デッキ2026 緑|ひつぜんのであいしなずいとしょう
+pr-021-c-01|フクロムジナ|ホロビト|緑|5|6500|あり|ナガレモノ||オーバートリガー|コロコロコミック付録デッキ2026 緑|ふくろむじな
+pr-022-uc-01|やっほー！ イロハとジャンボ|ホロビト|緑|6|6500|なし|ユルフワ・クラブ||オーバートリガー|コロコロコミック付録デッキ2026 緑|やっほー!いろはとじゃんぼ
+pr-023-uc-01|怪鳥 カミギリ|ホロビト|緑|7|7000|あり|スザク・ブラッド|ダブルダメージ|ラストオーバートリガー|コロコロコミック付録デッキ2026 緑|かいちょうかみぎり
+pr-024-c-01|麺合 チカラガツク|ホロビト|緑|8|10000|あり|ラシャ・ブラッド||ラストオーバートリガー|コロコロコミック付録デッキ2026 緑|めんびーとちからがつく
+pr-025-r-01|合身 不死火翔|ホロビト|緑|9|10000|なし|スザク・ブラッド|ダブルダメージ|ラストオーバートリガー|コロコロコミック付録デッキ2026 緑|おーばーびーとしなずいしょう
+pr-026-c-01|翠炎よ、燃えさかれ！|ワザ|緑|2|5000|なし|||ドロートリガー|コロコロコミック付録デッキ2026 緑|ひえんよ、もえさかれ!
+pr-027-uc-01|長距離、葬！|ワザ|緑|3|6000|なし|||ドロートリガー|コロコロコミック付録デッキ2026 緑|ちょうきょり、そう!
+pr-001-c-01|壱合 レオジン|ホロビト|赤|2|1114|あり|ライガ・ファミリー||エントリートリガー|PRカード|ふぁーすとびーとれおじん
+/*CARDS_END*/`;
+
+const IMG_BASE = "https://www.takaratomy.co.jp/products/horobeat-cardgame/img/card/";
+const OFFICIAL = "https://www.takaratomy.co.jp/products/horobeat-cardgame/cardlist/";
+const DECK_MAX = 50, NAME_MAX = 4;
+
+const RARITY = {c:"C",uc:"UC",r:"R",sr:"SR",dr:"DR",sec:"SEC"};
+const RRANK = {c:0,uc:1,r:2,sr:3,dr:4,sec:5};
+const SETORDER = {hb01:0,hd01:1,hd02:2,pr:3};
+const COLORS = {red:"赤",green:"緑",blue:"青"};
+const CCOL = {red:"var(--red)",green:"var(--green)",blue:"var(--blue)",none:"var(--none)"};
+const COLKEY = {"赤":"red","緑":"green","青":"blue"};
+/* 収録先の短い表示名 */
+function packLabel(s){
+  const M=[[/^HB-BP01/,"拡張パック第一弾"],[/^HB-SD01/,"スタートデッキ 赤"],[/^HB-SD02/,"スタートデッキ 緑"],
+    [/コロコロ.*赤/,"コロコロ付録 赤"],[/コロコロ.*緑/,"コロコロ付録 緑"],[/BOX特典/,"PR（BOX特典）"],
+    [/ホロモーションパック\s*(.*)/,"ホロモーションパック $1"],[/名人戦/,"名人戦 優勝賞"]];
+  for(const [re,l] of M){ const m=s.match(re); if(m) return l.replace("$1",m[1]||"").trim(); }
+  return s;
+}
+const CARDS = (()=> {
+  const rows = CARD_SRC.replace("/*CARDS_BEGIN*/","").replace("/*CARDS_END*/","").trim().split("\n").filter(Boolean);
+  const list = rows.map((line,i)=>{
+    const f = line.split("|").map(s=>(s||"").trim());
+    const [id,name,type,col,cost,power,boost,tribe,kw,trig,pack,yomi] = f;
+    const m = id.match(/^([a-z]+\d*)-(\d+)-([a-z]+)-(\d+)$/);
+    return {id,name,set:m[1],num:+m[2],rar:m[3],ill:+m[4],src:i,
+      type:type||"", color:COLKEY[col]||"none", cost:cost!==""&&cost!=null?+cost:null, power:power!==""&&power!=null?+power:null,
+      boost:boost||"", tribe:tribe||"", kw:kw||"", trig:trig||"", pack:pack||"", yomi:yomi||""};
+  });
+  list.forEach(c=>{
+    c.no=(c.set==="pr"?"PR":c.set.toUpperCase())+"-"+String(c.num).padStart(3,"0");
+    c.key=norm(c.name); c.ykey=norm(c.yomi); c.tkey=norm(c.tribe); c.packL=packLabel(c.pack); });
+  return list;
+})();
+const BYID = Object.fromEntries(CARDS.map(c=>[c.id,c]));
+
+/* ===== 文字正規化（ひらがな→カタカナ・全角半角統一・空白除去） ===== */
+function norm(s){
+  return s.normalize("NFKC").toLowerCase()
+    .replace(/[ぁ-ゖ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0x60))
+    .replace(/[\s・、。!！?？…〜~ー\-]/g,"");
+}
+
+/* ===== 状態 ===== */
+let deck = [];   // カードIDの配列（1枚ずつ）
+const newFilt=()=>({type:new Set(),color:new Set(),cost:new Set(),rar:new Set(),pack:new Set(),inDeck:false});
+let filt = newFilt();
+const costBand=c=>c.cost==null?"?":c.cost>=9?"9+":String(c.cost);
+const COST_BANDS=["1","2","3","4","5","6","7","8","9+"];
+let sortMode = "no";
+
+/* 同名カードの最後の位置+1（なければ -1） */
+function afterSameName(id){ const nm=BYID[id].name; for(let i=deck.length-1;i>=0;i--) if(BYID[deck[i]].name===nm) return i+1; return -1; }
+let query = "";
+
+const $ = s=>document.querySelector(s);
+const esc = s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function faceHTML(c){
+  return `<div class="fb"><span>${esc(c.name)}</span><span class="r">${c.no} ${RARITY[c.rar]}</span></div>`+
+    `<img class="face" src="${IMG_BASE}${c.set}/${c.id}.webp" alt="${esc(c.name)}" loading="lazy" referrerpolicy="no-referrer" draggable="false" onerror="this.remove()">`;
+}
+function nameCount(name){ let n=0; for(const id of deck) if(BYID[id].name===name) n++; return n; }
+function idCount(id){ let n=0; for(const x of deck) if(x===id) n++; return n; }
+
+const CORDER={red:0,green:1,blue:2,none:3};
+function cmpCost(a,b){ return (a.cost??99)-(b.cost??99) || CORDER[a.color]-CORDER[b.color] || cmpCard(a,b); }
+function cmpCard(a,b){
+  return SETORDER[a.set]-SETORDER[b.set] || a.num-b.num || RRANK[a.rar]-RRANK[b.rar] || a.ill-b.ill;
+}
+
+/* ===== 追加・削除 ===== */
+function canAdd(id){
+  const c=BYID[id];
+  if(deck.length>=DECK_MAX){toast("デッキは50枚までです");return false;}
+  if(nameCount(c.name)>=NAME_MAX){toast(`「${c.name}」は${NAME_MAX}枚までです`);return false;}
+  return true;
+}
+/* at を省略すると、同じカードの直後（なければ末尾）に入る */
+function addCard(id,at){
+  if(!canAdd(id)) return false;
+  const g=afterSameName(id);
+  if(g>=0) at=g;                 // 同名カードは常にまとめる
+  else if(at==null) at=g>=0?g:deck.length;
+  deck.splice(at,0,id); persist(); render(at); return true;
+}
+function removeAt(i,withUndo){
+  if(i<0||i>=deck.length) return false;
+  const before=[...deck], c=BYID[deck[i]];
+  deck.splice(i,1); persist(); render();
+  if(withUndo) toast(`「${c.name}」を削除`,()=>{ deck=before; persist(); render(); });
+  return true;
+}
+function removeCard(id){ return removeAt(deck.lastIndexOf(id)); }
+function sortDeck(){
+  /* コスト順（同コストは色→番号）。同名カードは並びを崩さずまとめる */
+  const first={}; deck.forEach(id=>{ const c=BYID[id]; if(!(c.name in first)) first[c.name]=c; });
+  deck.sort((a,b)=>{ const A=BYID[a],B=BYID[b]; return A.name===B.name?cmpCard(A,B):cmpCost(first[A.name],first[B.name]); });
+  persist(); render(); toast("コスト順に整列しました");
+}
+
+/* ===== 描画 ===== */
+function renderDeck(flashAt){
+  const el=$("#deck"); el.innerHTML="";
+  deck.forEach(id=>{
+    const c=BYID[id], d=document.createElement("div");
+    d.className="dcard c-"+c.color; d.dataset.id=id; d.innerHTML=faceHTML(c);
+    el.appendChild(d);
+  });
+  if(flashAt!=null){ const t=el.children[flashAt];
+    if(t){ t.classList.add("flash"); t.scrollIntoView({block:"nearest",behavior:"smooth"}); } }
+  const n=deck.length, cn=$("#cnt"); cn.textContent=n;
+  cn.className="n"+(n===DECK_MAX?" ok":n>DECK_MAX?" over":"");
+  $("#empty").style.display=n?"none":"flex";
+}
+function filtered(){
+  const q=norm(query);
+  let list=CARDS.filter(c=>{
+    if(q && !c.key.includes(q) && !c.ykey.includes(q) && !c.tkey.includes(q) && !c.no.toLowerCase().replace("-","").includes(q)) return false;
+    if(filt.type.size && !filt.type.has(c.type)) return false;
+    if(filt.color.size && !filt.color.has(c.color)) return false;
+    if(filt.cost.size && !filt.cost.has(costBand(c))) return false;
+    if(filt.rar.size && !filt.rar.has(c.rar)) return false;
+    if(filt.pack.size && !filt.pack.has(c.packL)) return false;
+    if(filt.inDeck && !idCount(c.id)) return false;
+    return true;
+  });
+  const sorters={
+    no:cmpCard,
+    costAsc:cmpCost,
+    costDesc:(a,b)=>(b.cost??-1)-(a.cost??-1)||cmpCard(a,b),
+    powerDesc:(a,b)=>(b.power??-1)-(a.power??-1)||cmpCard(a,b),
+    name:(a,b)=>(a.yomi||a.key).localeCompare(b.yomi||b.key,"ja")||cmpCard(a,b),
+    rarDesc:(a,b)=>RRANK[b.rar]-RRANK[a.rar]||cmpCard(a,b),
+    rarAsc:(a,b)=>RRANK[a.rar]-RRANK[b.rar]||cmpCard(a,b),
+    color:(a,b)=>["red","green","blue","none"].indexOf(a.color)-["red","green","blue","none"].indexOf(b.color)||cmpCard(a,b),
+    official:(a,b)=>a.src-b.src
+  };
+  return list.sort(sorters[sortMode]);
+}
+let stripKey="";
+function renderStrip(){
+  const list=filtered(), el=$("#strip");
+  const key=list.map(c=>c.id).join(",");
+  if(key!==stripKey){
+    stripKey=key; el.innerHTML=""; el.scrollLeft=0;
+    if(!list.length){ el.innerHTML='<div class="nohit">該当するカードがありません</div>'; }
+    list.forEach(c=>{
+      const d=document.createElement("div");
+      d.className="ccard c-"+c.color; d.dataset.id=c.id; d.innerHTML=faceHTML(c)+'<span class="badge" hidden></span>';
+      el.appendChild(d);
+    });
+  }
+  el.querySelectorAll(".ccard").forEach(d=>{
+    const c=BYID[d.dataset.id], n=idCount(c.id), b=d.querySelector(".badge");
+    b.hidden=!n; b.textContent=n;
+    d.classList.toggle("max", nameCount(c.name)>=NAME_MAX && !n);
+  });
+  $("#stripInfo").textContent=list.length+"件";
+  const on=filt.type.size||filt.color.size||filt.cost.size||filt.rar.size||filt.pack.size||filt.inDeck;
+  $("#bFilter").classList.toggle("on",!!on);
+}
+function render(flashAt){ renderDeck(flashAt); renderStrip(); if($("#mDetail").classList.contains("open")) renderDetail(); }
+
+/* ===== トースト（undo付き） ===== */
+let tt;
+function toast(m,undo){
+  const t=$("#toast"); t.innerHTML=""; t.append(m);
+  if(undo){ const b=document.createElement("button"); b.textContent="元に戻す";
+    b.onclick=()=>{ undo(); t.classList.remove("show"); }; t.append(b); }
+  t.classList.toggle("act",!!undo); t.classList.add("show");
+  clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),undo?3500:1600);
+}
+
+/* ===== ドラッグ（ポインターイベント：タッチ・マウス共通） =====
+   候補 → 上へドラッグでデッキへ（離した位置に挿入）
+   デッキ → ドラッグで並べ替え / 下へサッとはじく or 候補エリアで離すと削除 */
+const ghost=$("#ghost"), deckEl=$("#deck"), deckWrap=$("#deckWrap");
+let drag=null, ph=null, lastDragAt=0;
+/* タップで詳細（pointerup で開くと、同じタップの click が背景に当たって閉じてしまうため click で開く） */
+document.addEventListener("click",e=>{
+  const c=e.target.closest(".ccard,.dcard"); if(!c || c.classList.contains("ph")) return;
+  if(Date.now()-lastDragAt<400) return;
+  openDetail(c.dataset.id);
+});
+const FLICK_V=0.3, FLICK_DY=20;   // はじき削除: 0.3px/ms 以上 かつ 20px 以上下へ
+
+function startPending(e,id,from,el){
+  if(e.button>0) return;
+  drag={id,from,el,x0:e.clientX,y0:e.clientY,active:false,pid:e.pointerId,
+    idx:from==="deck"?[...deckEl.children].indexOf(el):-1, hist:[[e.clientX,e.clientY,e.timeStamp]]};
+}
+function activate(e){
+  drag.active=true; lastDragAt=Date.now();
+  try{ drag.el.setPointerCapture(drag.pid); }catch(_){}
+  ghost.className="c-"+BYID[drag.id].color; ghost.innerHTML=faceHTML(BYID[drag.id]); ghost.style.display="block";
+  if(drag.from==="deck"){ drag.el.classList.add("lift"); document.body.classList.add("removing"); }
+  if(navigator.vibrate) try{navigator.vibrate(8)}catch(_){}
+  onMove(e);
+}
+function inDeckArea(e){ const r=deckWrap.getBoundingClientRect(); return e.clientY>=r.top-20 && e.clientY<=r.bottom-8; }
+function inRemoveArea(e){ const r=deckWrap.getBoundingClientRect(); return e.clientY>r.bottom-8; }
+
+/* 読み順（左→右、上→下）で、指の位置に入るインデックスを求める */
+function slotAt(x,y,self){
+  const cards=[...deckEl.children].filter(c=>c!==self);
+  for(let i=0;i<cards.length;i++){
+    const r=cards[i].getBoundingClientRect();
+    if(y<r.top-2) return i;
+    if(y<=r.bottom+2 && x<r.left+r.width/2) return i;
+  }
+  return cards.length;
+}
+function placeAt(node,i){
+  const cards=[...deckEl.children].filter(c=>c!==node);
+  const ref=cards[i]||null;
+  if(node.parentNode===deckEl && node.nextElementSibling===ref) return;
+  deckEl.insertBefore(node,ref);
+}
+function onMove(e){
+  ghost.style.left=e.clientX+"px"; ghost.style.top=e.clientY+"px";
+  const inDeck=inDeckArea(e);
+  if(drag.from==="cand"){
+    deckWrap.classList.toggle("drop",inDeck);
+    if(inDeck){
+      if(!ph){ ph=document.createElement("div"); ph.className="dcard ph"; }
+      const g=afterSameName(drag.id);
+      placeAt(ph,g>=0?g:slotAt(e.clientX,e.clientY,ph));
+      $("#empty").style.display="none";
+    }else if(ph){ ph.remove(); ph=null; $("#empty").style.display=deck.length?"none":"flex"; }
+  }else{
+    if(inDeck) placeAt(drag.el,slotAt(e.clientX,e.clientY,drag.el));
+  }
+}
+function endDrag(){
+  lastDragAt=Date.now();
+  ghost.style.display="none"; deckWrap.classList.remove("drop");
+  document.body.classList.remove("removing");
+  if(ph){ ph.remove(); ph=null; }
+  if(drag && drag.el) drag.el.classList.remove("lift");
+  drag=null;
+}
+function flickDown(d,e){
+  const now=e.timeStamp, h=d.hist.filter(p=>now-p[2]<=120);
+  const p0=h[0]||d.hist[d.hist.length-1];
+  const dt=Math.max(1,now-p0[2]), vy=(e.clientY-p0[1])/dt, vx=(e.clientX-p0[0])/dt;
+  const dy=e.clientY-d.y0;
+  return dy>FLICK_DY && vy>FLICK_V && vy>Math.abs(vx);
+}
+
+document.addEventListener("pointerdown",e=>{
+  if(drag) return;
+  const cc=e.target.closest(".ccard"), dc=e.target.closest(".dcard");
+  if(cc) startPending(e,cc.dataset.id,"cand",cc);
+  else if(dc) startPending(e,dc.dataset.id,"deck",dc);
+});
+document.addEventListener("pointermove",e=>{
+  if(!drag || e.pointerId!==drag.pid) return;
+  drag.hist.push([e.clientX,e.clientY,e.timeStamp]); if(drag.hist.length>12) drag.hist.shift();
+  const dx=e.clientX-drag.x0, dy=e.clientY-drag.y0;
+  if(!drag.active){
+    if(drag.from==="cand"){
+      if(Math.abs(dx)>12 && Math.abs(dx)>Math.abs(dy)){ drag=null; return; }   // 横スクロール優先
+      if(dy<-10 && Math.abs(dy)>=Math.abs(dx)*0.8) activate(e);
+    }else if(Math.hypot(dx,dy)>6) activate(e);
+    return;
+  }
+  e.preventDefault(); onMove(e);
+},{passive:false});
+document.addEventListener("pointerup",e=>{
+  if(!drag || e.pointerId!==drag.pid) return;
+  const d=drag;
+  if(!d.active){ drag=null; return; }   // タップは click イベントで処理
+  if(d.from==="cand"){
+    const at=ph?[...deckEl.children].indexOf(ph):-1;
+    endDrag();
+    if(at>=0) addCard(d.id,at);
+  }else{
+    if(flickDown(d,e) || inRemoveArea(e)){
+      endDrag(); d.el.classList.add("gone");
+      setTimeout(()=>removeAt(d.idx,true),120);
+    }else{
+      const order=[...deckEl.children].map(c=>c.dataset.id);
+      endDrag(); deck=order; persist(); render();
+    }
+  }
+});
+document.addEventListener("pointercancel",e=>{ if(drag && drag.active){ endDrag(); render(); } else drag=null; });
+document.addEventListener("dragstart",e=>{ if(e.target.closest&&e.target.closest(".ccard,.dcard")) e.preventDefault(); });
+document.addEventListener("contextmenu",e=>{ if(e.target.closest(".ccard,.dcard")) e.preventDefault(); });
+
+/* ===== 詳細 ===== */
+let detailId=null;
+function openDetail(id){ detailId=id; renderDetail(); openM("#mDetail"); }
+function renderDetail(){
+  const c=BYID[detailId]; if(!c) return;
+  const alts=CARDS.filter(x=>x.name===c.name).sort(cmpCard);
+  const n=idCount(c.id), nn=nameCount(c.name);
+  $("#detailBody").innerHTML=`
+    <div class="detail">
+      <div class="big c-${c.color}">${faceHTML(c).replace('loading="lazy"','')}</div>
+      <div class="side">
+        <div class="nm">${esc(c.name)}</div>
+        <div>${c.no}</div>
+        <div><span class="tag" style="background:${CCOL[c.color]}">${COLORS[c.color]||"-"}</span><span class="tag" style="background:#555">${RARITY[c.rar]}</span></div>
+        <div style="color:#666">デッキ内 ${nn}/${NAME_MAX}</div>
+        <a href="${OFFICIAL}" target="_blank" rel="noopener" style="color:var(--accent2);font-size:12px">公式カード検索で見る ↗</a>
+    ${alts.length>1?`<div class="lbl" style="margin-top:6px">イラスト・収録違い</div><div class="alts">${alts.map(a=>`<div class="alt c-${a.color} ${a.id===c.id?"cur":""}" data-alt="${a.id}">${faceHTML(a)}${idCount(a.id)?`<span class="badge">${idCount(a.id)}</span>`:""}</div>`).join("")}</div>`:""}
+      </div>
+    </div>
+    <dl class="spec">
+          <dt>タイプ</dt><dd>${esc(c.type)||"-"}</dd>
+          <dt>コスト</dt><dd>${c.cost??"-"}</dd>
+          ${c.type==="ワザ"?"":`<dt>パワー</dt><dd>${c.power??"-"}</dd>`}
+          <dt>ブースト</dt><dd>${esc(c.boost)||"-"}</dd>
+          ${c.tribe?`<dt>種族</dt><dd>${esc(c.tribe)}</dd>`:""}
+          ${c.kw?`<dt>能力</dt><dd>${esc(c.kw)}</dd>`:""}
+          ${c.trig?`<dt>トリガー</dt><dd>${esc(c.trig)}</dd>`:""}
+          <dt>収録</dt><dd>${esc(c.packL)||"-"}</dd>
+        </dl>
+    <div style="text-align:center;font-size:12px;color:#666;margin-top:10px">デッキ内</div>
+    <div class="counter">
+      <button class="cb" id="dMinus" ${n?"":"disabled"}>−</button>
+      <span class="num">${n}</span><span class="of">/ ${NAME_MAX}枚</span>
+      <button class="cb" id="dPlus" ${nn>=NAME_MAX||deck.length>=DECK_MAX?"disabled":""}>＋</button>
+      <button class="cb" id="dMax" style="font-size:12px;font-weight:800" ${nn>=NAME_MAX||deck.length>=DECK_MAX?"disabled":""}>MAX</button>
+    </div>`;
+  $("#dMinus").onclick=()=>removeCard(c.id);
+  $("#dPlus").onclick=()=>addCard(c.id);
+  $("#dMax").onclick=()=>{ let at; while(nameCount(c.name)<NAME_MAX && deck.length<DECK_MAX){ const g=afterSameName(c.id); at=g>=0?g:deck.length; deck.splice(at,0,c.id);} persist(); render(at); };
+  $("#detailBody").querySelectorAll("[data-alt]").forEach(a=>a.onclick=()=>{ detailId=a.dataset.alt; renderDetail(); });
+  const al=$("#detailBody .side .alts");
+  if(al){ const upd=()=>{ al.classList.toggle("more",al.scrollWidth>al.clientWidth+2); al.classList.toggle("end",al.scrollLeft+al.clientWidth>=al.scrollWidth-2); };
+    requestAnimationFrame(upd); al.addEventListener("scroll",upd,{passive:true});
+    const cur=al.querySelector(".cur"); if(cur) requestAnimationFrame(()=>{ al.scrollLeft=Math.max(0,cur.offsetLeft-al.offsetLeft-4); upd(); }); }
+}
+
+/* ===== モーダル ===== */
+function openM(s){ $(s).classList.add("open"); }
+function closeM(m){ m.classList.remove("open"); }
+document.querySelectorAll(".modal").forEach(m=>{
+  m.addEventListener("click",e=>{ if(e.target===m || e.target.closest("[data-close]")) closeM(m); });
+});
+function confirmBox(msg,ok){ $("#cfMsg").textContent=msg; $("#cfOk").onclick=()=>{ closeM($("#mConfirm")); ok(); }; openM("#mConfirm"); }
+
+/* ===== 絞り込み・並べ替え ===== */
+function chipGroup(sel,items,setObj){
+  const el=$(sel); el.innerHTML="";
+  items.forEach(([v,label])=>{
+    const b=document.createElement("button"); b.className="chip"+(setObj.has(v)?" on":""); b.textContent=label;
+    b.onclick=()=>{ setObj.has(v)?setObj.delete(v):setObj.add(v); b.classList.toggle("on"); renderStrip(); };
+    el.appendChild(b);
+  });
+}
+function buildFilter(){
+  chipGroup("#fType",[["ホロビト","ホロビト"],["ワザ","ワザ"]],filt.type);
+  chipGroup("#fColor",Object.entries(COLORS),filt.color);
+  chipGroup("#fCost",COST_BANDS.map(k=>[k,k]),filt.cost);
+  chipGroup("#fRarity",Object.entries(RARITY),filt.rar);
+  const packs=[]; [...CARDS].sort(cmpCard).forEach(c=>{ if(c.packL && !packs.includes(c.packL)) packs.push(c.packL); });
+  chipGroup("#fSet",packs.map(p=>[p,p]),filt.pack);
+  const m=$("#fMisc"); m.innerHTML="";
+  const b=document.createElement("button"); b.className="chip"+(filt.inDeck?" on":""); b.textContent="デッキに入っているカードのみ";
+  b.onclick=()=>{ filt.inDeck=!filt.inDeck; b.classList.toggle("on"); renderStrip(); }; m.appendChild(b);
+}
+$("#bFilter").onclick=()=>{ buildFilter(); openM("#mFilter"); };
+$("#fReset").onclick=()=>{ filt=newFilt(); buildFilter(); renderStrip(); };
+const SORTS=[["no","カード番号順"],["costAsc","コスト低い順"],["costDesc","コスト高い順"],["powerDesc","パワー高い順"],["color","色順"],["name","名前順"],["rarDesc","レアリティ高い順"],["official","公式サイト掲載順"]];
+$("#bSort").onclick=()=>{
+  const el=$("#sortChips"); el.innerHTML="";
+  SORTS.forEach(([v,l])=>{ const b=document.createElement("button"); b.className="chip"+(sortMode===v?" on":""); b.textContent=l;
+    b.onclick=()=>{ sortMode=v; renderStrip(); closeM($("#mSort")); }; el.appendChild(b); });
+  openM("#mSort");
+};
+
+/* ===== 検索 ===== */
+const qi=$("#q");
+qi.addEventListener("input",()=>{ query=qi.value; $("#sbox").classList.toggle("has",!!query); renderStrip(); });
+$("#qclr").onclick=()=>{ qi.value=""; query=""; $("#sbox").classList.remove("has"); renderStrip(); };
+qi.addEventListener("keydown",e=>{ if(e.key==="Enter") qi.blur(); });
+
+$("#bArrange").onclick=()=>{ if(deck.length) sortDeck(); };
+
+/* ===== 分析 ===== */
+$("#bAnalyze").onclick=()=>{
+  const CK=["red","green","blue","none"];
+  const cc={red:0,green:0,blue:0,none:0};
+  const BANDS=COST_BANDS, band=costBand;
+  const bc={}; [...BANDS,"?"].forEach(k=>bc[k]={red:0,green:0,blue:0,none:0,t:0});
+  deck.forEach(id=>{ const c=BYID[id]; cc[c.color]++; const k=band(c); bc[k][c.color]++; bc[k].t++; });
+  const keys=bc["?"].t?[...BANDS,"?"]:BANDS;
+  const max=Math.max(4,...keys.map(k=>bc[k].t));
+  const names={}; deck.forEach(id=>{ const c=BYID[id]; const k=c.no+" "+c.name; names[k]=(names[k]||0)+1; });
+  const listText=Object.entries(names).map(([k,v])=>`${v} ${k}`).join("\n");
+  const colCols=CK.filter(k=>k!=="none"||cc.none);
+  const tc={}; deck.forEach(id=>{ const ty=BYID[id].type; tc[ty]=(tc[ty]||0)+1; });
+  $("#anaBody").innerHTML=`
+    <div style="font-size:15px;font-weight:700">合計 ${deck.length}枚 <span style="font-size:12px;color:${deck.length===DECK_MAX?"var(--green)":"#999"}">${deck.length===DECK_MAX?"構築条件OK":"あと"+(DECK_MAX-deck.length)+"枚"}</span></div>
+    <div class="lbl" style="margin-top:12px">コスト</div>
+    <div class="bars cost">${keys.map(k=>`<div class="b"><b>${bc[k].t||""}</b><div class="stk" style="height:${bc[k].t/max*100}%">${CK.filter(c=>bc[k][c]).map(c=>`<i style="flex:${bc[k][c]};background:${CCOL[c]}"></i>`).join("")}</div><span>${k}</span></div>`).join("")}</div>
+    <div class="lbl" style="margin-top:12px">色</div>
+    <table class="atable"><tr>${colCols.map(k=>`<th style="border-bottom:3px solid ${CCOL[k]}">${COLORS[k]||"不明"}</th>`).join("")}</tr><tr>${colCols.map(k=>`<td>${cc[k]}</td>`).join("")}</tr></table>
+    <div class="lbl">カードタイプ</div>
+    <table class="atable"><tr><th>ホロビト</th><th>ワザ</th></tr><tr><td>${tc["ホロビト"]||0}</td><td>${tc["ワザ"]||0}</td></tr></table>
+    <div class="lbl">デッキリスト</div>
+    <textarea rows="8" readonly id="listTxt">${esc(listText)}</textarea>
+    <div class="row" style="margin-top:6px"><button class="btn ghost" id="copyList">リストをコピー</button></div>`;
+  $("#copyList").onclick=()=>copyText(listText);
+  openM("#mAnalyze");
+};
+
+/* ===== 保存・コード ===== */
+const LS_CUR="horobeat_deck_current", LS_SAVED="horobeat_decks";
+function ls(k,v){ try{ if(v===undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k,JSON.stringify(v)); }catch(_){ return null; } }
+function persist(){ ls(LS_CUR,deck); }
+function encode(d){
+  const m={}; d.forEach(id=>m[id]=(m[id]||0)+1);
+  return "HB1:"+Object.entries(m).map(([id,n])=>id+(n>1?"*"+n:"")).join(",");
+}
+function decode(s){
+  s=(s||"").trim(); const i=s.indexOf("HB1:"); if(i<0) return null;
+  const out=[]; s.slice(i+4).split(/[,\s]+/).filter(Boolean).forEach(t=>{
+    const [id,n]=t.split("*"); if(BYID[id]) for(let k=0;k<(+n||1);k++) out.push(id); });
+  return out;
+}
+function copyText(t){
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast("コピーしました"),()=>{
+    const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); toast("コピーしました"); }catch(_){ toast("コピーできませんでした"); } ta.remove(); });
+}
+function renderSaved(){
+  const list=ls(LS_SAVED)||[], el=$("#savedList"); el.innerHTML=list.length?"":'<li style="color:#999">保存したデッキはありません</li>';
+  list.forEach((d,i)=>{
+    const li=document.createElement("li");
+    li.innerHTML=`<span>${esc(d.name)} <small style="color:#999">(${d.cards.length}枚)</small></span><button class="btn ghost">読込</button><button class="btn red">削除</button>`;
+    const [bl,bd]=li.querySelectorAll("button");
+    bl.onclick=()=>{ deck=d.cards.filter(id=>BYID[id]); $("#deckName").value=d.name; persist(); render(); closeM($("#mSave")); toast("読み込みました"); };
+    bd.onclick=()=>confirmBox(`「${d.name}」を削除しますか？`,()=>{ list.splice(i,1); ls(LS_SAVED,list); renderSaved(); });
+    el.appendChild(li);
+  });
+}
+$("#bSave").onclick=()=>{ $("#code").value=encode(deck); renderSaved(); openM("#mSave"); };
+$("#doSave").onclick=()=>{
+  const name=$("#deckName").value.trim()||"無題のデッキ";
+  const list=ls(LS_SAVED)||[]; const ex=list.findIndex(d=>d.name===name);
+  const item={name,cards:[...deck],at:Date.now()};
+  if(ex>=0) list[ex]=item; else list.unshift(item);
+  ls(LS_SAVED,list); renderSaved(); toast("保存しました");
+};
+$("#copyCode").onclick=()=>copyText($("#code").value);
+$("#copyUrl").onclick=()=>{ const u=location.href.split("#")[0]+"#"+encodeURIComponent(encode(deck)); copyText(u); };
+$("#loadCode").onclick=()=>{ const d=decode($("#code").value); if(!d){ toast("コードが正しくありません"); return; } deck=d.slice(0,DECK_MAX); persist(); render(); closeM($("#mSave")); toast("読み込みました"); };
+$("#bClear").onclick=()=>{ if(!deck.length) return; confirmBox("デッキのカードをすべて削除しますか？",()=>{ deck=[]; persist(); render(); }); };
+
+
+/* ===== デッキ画像（10×5） ===== */
+const imgCache={};
+function loadImg(url){ return new Promise(res=>{ const im=new Image(); im.crossOrigin="anonymous"; im.referrerPolicy="no-referrer";
+  const to=setTimeout(()=>res(null),8000); im.onload=()=>{clearTimeout(to);res(im)}; im.onerror=()=>{clearTimeout(to);res(null)}; im.src=url; }); }
+async function cardBitmap(c){
+  if(c.id in imgCache) return imgCache[c.id];
+  const u=IMG_BASE+c.set+"/"+c.id+".webp";
+  // 公式画像を直接 → だめなら画像中継サービス経由（画像に書き出すには CORS 許可が必要なため）
+  let im=await loadImg(u);
+  if(!im) im=await loadImg("https://images.weserv.nl/?url="+encodeURIComponent(u.replace(/^https:\/\//,""))+"&output=png");
+  return imgCache[c.id]=im;
+}
+function rrect(g,x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+const TILE={red:["#e05a40","#7a1d10"],green:["#5bb574","#1d4f2c"],blue:["#4f8ee0","#173a72"],none:["#9a9a9a","#444"]};
+function drawTile(g,c,x,y,w,h){
+  const gr=g.createLinearGradient(x,y,x+w,y+h); gr.addColorStop(0,TILE[c.color][0]); gr.addColorStop(1,TILE[c.color][1]);
+  g.fillStyle=gr; g.fillRect(x,y,w,h);
+  g.fillStyle="#fff"; g.font="bold 22px sans-serif"; g.textBaseline="top";
+  let line="", ly=y+12; for(const ch of c.name){ if(g.measureText(line+ch).width>w-20){ g.fillText(line,x+10,ly); ly+=28; line=ch; } else line+=ch; }
+  g.fillText(line,x+10,ly);
+  g.font="bold 18px sans-serif"; g.fillText(c.no+" "+RARITY[c.rar],x+10,y+h-30);
+}
+async function buildDeckImage(useImages){
+  buildDeckImage.miss=0;
+  const CW=200,CH=280,GAP=10,PAD=30,HEAD=100,COLS=10,ROWS=5;
+  const W=PAD*2+COLS*CW+(COLS-1)*GAP, H=PAD*2+HEAD+ROWS*CH+(ROWS-1)*GAP;
+  const cv=document.createElement("canvas"); cv.width=W; cv.height=H; const g=cv.getContext("2d");
+  g.fillStyle="#141418"; g.fillRect(0,0,W,H);
+  const name=($("#deckName").value.trim()||"ホロビート デッキ");
+  const cc={red:0,green:0,blue:0,none:0}; deck.forEach(id=>cc[BYID[id].color]++);
+  g.textBaseline="middle"; g.fillStyle="#f3efe6"; g.font="bold 48px sans-serif"; g.fillText(name,PAD,PAD+HEAD/2-8);
+  g.textAlign="right"; g.font="bold 30px sans-serif";
+  const parts=[["red","赤"],["green","緑"],["blue","青"],["none","不明"]].filter(([k])=>cc[k]);
+  let rx=W-PAD; for(const [k,l] of parts.reverse()){ const s=`${l} ${cc[k]}`; g.fillStyle=TILE[k][0]; g.fillText(s,rx,PAD+HEAD/2-8); rx-=g.measureText(s).width+28; }
+  g.fillStyle="#f3efe6"; g.fillText(`${deck.length}/${DECK_MAX}枚`,rx,PAD+HEAD/2-8); g.textAlign="left";
+  g.fillStyle="#6b675f"; g.font="18px sans-serif"; g.fillText("HOROBEAT DECK MAKER",PAD,H-PAD/2);
+  for(let i=0;i<COLS*ROWS;i++){
+    const x=PAD+(i%COLS)*(CW+GAP), y=PAD+HEAD+Math.floor(i/COLS)*(CH+GAP);
+    g.save(); rrect(g,x,y,CW,CH,10);
+    if(i>=deck.length){ g.strokeStyle="#3a3a40"; g.lineWidth=3; g.setLineDash([10,8]); g.stroke(); g.restore(); continue; }
+    g.clip(); const c=BYID[deck[i]], im=useImages?await cardBitmap(c):null;
+    if(im) g.drawImage(im,x,y,CW,CH); else { drawTile(g,c,x,y,CW,CH); if(useImages) buildDeckImage.miss++; }
+    g.restore();
+  }
+  return cv;
+}
+function canvasURL(cv){ return new Promise((res,rej)=>{ try{ cv.toBlob(b=>b?res(URL.createObjectURL(b)):rej(new Error("blob")),"image/png"); }catch(e){ rej(e); } }); }
+$("#bImage").onclick=async()=>{
+  if(!deck.length){ toast("デッキが空です"); return; }
+  closeM($("#mSave")); openM("#mImage");
+  const st=$("#imgStatus"), out=$("#imgOut"); out.style.display="none"; $("#imgActions").style.display="none";
+  st.textContent="画像を作成中…（カード画像を読み込んでいます）";
+  let url, note="";
+  try{ url=await canvasURL(await buildDeckImage(true)); }
+  catch(_){ url=await canvasURL(await buildDeckImage(false)); note="カード画像を取り込めなかったため、カード名の表示で作成しました。"; }
+  out.src=url; out.style.display="block"; $("#imgDl").href=url; $("#imgActions").style.display="flex";
+  const fname=(($("#deckName").value.trim()||"horobeat_deck").replace(/[\\/:*?"<>|]/g,"_"))+".png"; $("#imgDl").download=fname;
+  if(!note && buildDeckImage.miss) note=`${buildDeckImage.miss}枚はカード画像を読み込めず、カード名の表示になっています。`;
+  st.textContent=note;
+};
+
+/* ===== 起動 ===== */
+(function init(){
+  const h=decodeURIComponent(location.hash.slice(1)); const fromHash=decode(h);
+  deck=(fromHash||ls(LS_CUR)||[]).filter(id=>BYID[id]);
+  if(fromHash) history.replaceState(null,"",location.pathname+location.search);
+  render();
+})();
+</script>
+</body>
+</html>

@@ -105,6 +105,7 @@ header .sp{flex:1}
 .chip{border:1px solid #ccc;background:#fff;color:#333;border-radius:16px;padding:6px 12px;font-size:13px}
 .chip.on{background:var(--accent2);border-color:var(--accent2);color:#fff}
 .lbl{font-size:12px;color:#777;font-weight:700}
+.kbox{border:1px solid #ccc;height:42px;margin-top:6px}
 .row{display:flex;gap:8px;align-items:center}
 .btn{border:0;border-radius:6px;padding:10px 14px;background:var(--accent2);color:#fff;font-weight:700}
 .btn.ghost{background:#eee;color:#333}
@@ -118,6 +119,8 @@ header .sp{flex:1}
 .detail .side{flex:1;display:flex;flex-direction:column;gap:8px;font-size:13px}
 .detail .side .nm{font-size:16px;font-weight:800;line-height:1.3;padding-right:26px}
 .spec{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:6px 10px;margin:12px 0 0;font-size:13px;background:#f6f4ef;border-radius:8px;padding:10px 12px}
+.abil{margin-top:8px;font-size:12.5px;line-height:1.6;color:#333;background:#fff;border:1px solid #eee;border-radius:8px;padding:8px 12px}
+.abil p{margin:0 0 3px}
 .spec dt{color:#999;white-space:nowrap}.spec dd{margin:0;color:#333;word-break:break-all}
 .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;color:#fff;margin-right:4px}
 .alts{display:flex;gap:6px;overflow-x:auto;padding:10px 0 4px}
@@ -206,6 +209,9 @@ input.txt{border:1px solid #ccc;border-radius:6px;padding:9px;font-size:15px;fle
 <div class="modal" id="mFilter"><div class="sheet">
   <button class="x" data-close>✕</button>
   <h3>絞り込み</h3>
+  <div class="lbl">キーワード</div>
+  <div class="sbox kbox"><input id="fWord" type="search" placeholder="テキスト・種族・トリガーなど" autocomplete="off" enterkeyhint="done"></div>
+  <p class="note" style="margin:4px 0 12px">スペース区切りで複数指定（すべて含むカード）</p>
   <div class="lbl">カードタイプ</div><div class="chips" id="fType"></div>
   <div class="lbl">色</div><div class="chips" id="fColor"></div>
   <div class="lbl">コスト</div><div class="chips" id="fCost"></div>
@@ -259,7 +265,7 @@ input.txt{border:1px solid #ccc;border-radius:6px;padding:9px;font-size:15px;fle
 
 <script>
 /* ===== カードデータ（公式カード検索から取得） =====
-   書式: 画像ID|カード名|カードタイプ|色|コスト|パワー|ブースト|種族|キーワード能力|トリガー|収録先|よみがな
+   書式: 画像ID|カード名|カードタイプ|色|コスト|パワー|ブースト|種族|キーワード能力|トリガー|収録先|よみがな|能力テキスト
    画像ID = {収録}-{番号}-{レアリティ}-{イラスト番号}
    update_cards.mjs を実行するとこのブロックが公式サイトの最新データで置き換わります。 */
 const CARD_SRC = `/*CARDS_BEGIN*/
@@ -482,15 +488,16 @@ const CARDS = (()=> {
   const rows = CARD_SRC.replace("/*CARDS_BEGIN*/","").replace("/*CARDS_END*/","").trim().split("\n").filter(Boolean);
   const list = rows.map((line,i)=>{
     const f = line.split("|").map(s=>(s||"").trim());
-    const [id,name,type,col,cost,power,boost,tribe,kw,trig,pack,yomi] = f;
+    const [id,name,type,col,cost,power,boost,tribe,kw,trig,pack,yomi,text] = f;
     const m = id.match(/^([a-z]+\d*)-(\d+)-([a-z]+)-(\d+)$/);
     return {id,name,set:m[1],num:+m[2],rar:m[3],ill:+m[4],src:i,
       type:type||"", color:COLKEY[col]||"none", cost:cost!==""&&cost!=null?+cost:null, power:power!==""&&power!=null?+power:null,
-      boost:boost||"", tribe:tribe||"", kw:kw||"", trig:trig||"", pack:pack||"", yomi:yomi||""};
+      boost:boost||"", tribe:tribe||"", kw:kw||"", trig:trig||"", pack:pack||"", yomi:yomi||"", text:text||""};
   });
   list.forEach(c=>{
     c.no=(c.set==="pr"?"PR":c.set.toUpperCase())+"-"+String(c.num).padStart(3,"0");
-    c.key=norm(c.name); c.ykey=norm(c.yomi); c.tkey=norm(c.tribe); c.packL=packLabel(c.pack); });
+    c.key=norm(c.name); c.ykey=norm(c.yomi); c.tkey=norm(c.tribe); c.packL=packLabel(c.pack);
+    c.full=norm([c.name,c.yomi,c.type,c.tribe,c.kw,c.trig,c.text,c.pack,c.packL].join(" ")); });
   return list;
 })();
 const BYID = Object.fromEntries(CARDS.map(c=>[c.id,c]));
@@ -504,7 +511,7 @@ function norm(s){
 
 /* ===== 状態 ===== */
 let deck = [];   // カードIDの配列（1枚ずつ）
-const newFilt=()=>({type:new Set(),color:new Set(),cost:new Set(),rar:new Set(),pack:new Set(),inDeck:false});
+const newFilt=()=>({word:"",type:new Set(),color:new Set(),cost:new Set(),rar:new Set(),pack:new Set(),inDeck:false});
 let filt = newFilt();
 const costBand=c=>c.cost==null?"?":c.cost>=9?"9+":String(c.cost);
 const COST_BANDS=["1","2","3","4","5","6","7","8","9+"];
@@ -576,8 +583,10 @@ function renderDeck(flashAt){
 }
 function filtered(){
   const q=norm(query);
+  const words=filt.word.split(/[\s\u3000]+/).map(norm).filter(Boolean);
   let list=CARDS.filter(c=>{
     if(q && !c.key.includes(q) && !c.ykey.includes(q) && !c.tkey.includes(q) && !c.no.toLowerCase().replace("-","").includes(q)) return false;
+    if(words.length && !words.every(w=>c.full.includes(w))) return false;
     if(filt.type.size && !filt.type.has(c.type)) return false;
     if(filt.color.size && !filt.color.has(c.color)) return false;
     if(filt.cost.size && !filt.cost.has(costBand(c))) return false;
@@ -618,7 +627,7 @@ function renderStrip(){
     d.classList.toggle("max", nameCount(c.name)>=NAME_MAX && !n);
   });
   $("#stripInfo").textContent=list.length+"件";
-  const on=filt.type.size||filt.color.size||filt.cost.size||filt.rar.size||filt.pack.size||filt.inDeck;
+  const on=filt.word.trim()||filt.type.size||filt.color.size||filt.cost.size||filt.rar.size||filt.pack.size||filt.inDeck;
   $("#bFilter").classList.toggle("on",!!on);
 }
 function render(flashAt){ renderDeck(flashAt); renderStrip(); if($("#mDetail").classList.contains("open")) renderDetail(); }
@@ -779,6 +788,7 @@ function renderDetail(){
           ${c.trig?`<dt>トリガー</dt><dd>${esc(c.trig)}</dd>`:""}
           <dt>収録</dt><dd>${esc(c.packL)||"-"}</dd>
         </dl>
+    ${c.text?`<div class="abil">${c.text.split(" / ").map(x=>`<p>${esc(x)}</p>`).join("")}</div>`:""}
     <div style="text-align:center;font-size:12px;color:#666;margin-top:10px">デッキ内</div>
     <div class="counter">
       <button class="cb" id="dMinus" ${n?"":"disabled"}>−</button>
@@ -814,6 +824,9 @@ function chipGroup(sel,items,setObj){
   });
 }
 function buildFilter(){
+  const fw=$("#fWord"); fw.value=filt.word;
+  fw.oninput=()=>{ filt.word=fw.value; renderStrip(); };
+  fw.onkeydown=e=>{ if(e.key==="Enter") fw.blur(); };
   chipGroup("#fType",[["ホロビト","ホロビト"],["ワザ","ワザ"]],filt.type);
   chipGroup("#fColor",Object.entries(COLORS),filt.color);
   chipGroup("#fCost",COST_BANDS.map(k=>[k,k]),filt.cost);

@@ -10,7 +10,8 @@
 
 ## カードデータの更新
 
-カードデータは公式カード検索から取得して `index.html` に埋め込んでいます。新しいカードが出たら:
+カードデータは公式カード検索から取得して `index.html` に埋め込んでいます。
+GitHub Actions（`.github/workflows/update-cards.yml`）が毎日自動で確認・更新します。手動で更新する場合は Actions タブの「カードデータ更新」→「Run workflow」、またはローカルで:
 
 ```sh
 node update_cards.mjs index.html

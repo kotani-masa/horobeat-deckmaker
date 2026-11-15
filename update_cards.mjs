@@ -27,7 +27,14 @@ export function parsePage(html) {
     const f = {};
     const re = /<div class="hb_cardlist_detail_item">\s*<dt>([\s\S]*?)<\/dt>\s*<dd[^>]*>([\s\S]*?)<\/dd>/g;
     let m; while ((m = re.exec(li))) f[text(m[1])] = text(m[2]);
-    out.push({ id, name, f });
+    // カードの能力テキスト
+    let ability = "";
+    const tre = /<div class="hb_cardlist_detail_txt_item">\s*<h3[^>]*>([\s\S]*?)<\/h3>([\s\S]*?)<\/div>/g;
+    while ((m = tre.exec(li))) {
+      if (text(m[1]) !== "カードの能力") continue;
+      ability = [...m[2].matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map(x => text(x[1])).filter(Boolean).join(" / ");
+    }
+    out.push({ id, name, f, ability });
   }
   return { cards: out, yomi };
 }
@@ -50,10 +57,14 @@ async function main() {
   }
   if (!rows.length) throw new Error("カードが取得できませんでした（サイト構造が変わった可能性があります）");
 
-  const lines = rows.map(({ id, name, f }) => [id, name, f["カードタイプ"], f["色"], f["コスト"], f["パワー"], f["ブースト"],
-    f["種族"], f["キーワード能力"], f["トリガー"], f["収録先"], yomi[name]].map(s => (s || "").replace(/[|\n`]/g, " ")).join("|"));
+  const clean = s => (s || "").replace(/[|\n`\\]/g, " ").replace(/\$\{/g, "$ {");
+  const lines = rows.map(({ id, name, f, ability }) => [id, name, f["カードタイプ"], f["色"], f["コスト"], f["パワー"], f["ブースト"],
+    f["種族"], f["キーワード能力"], f["トリガー"], f["収録先"], yomi[name], ability].map(clean).join("|"));
+  const bad = rows.filter(r => !r.f["カードタイプ"]).length;
+  if (bad > rows.length / 2) throw new Error(`詳細データが読めないカードが多すぎます（${bad}/${rows.length}）。サイト構造が変わった可能性があります`);
 
   const html = fs.readFileSync(file, "utf8");
+  if (!/\/\*CARDS_BEGIN\*\//.test(html)) throw new Error(`${file} にカードデータの目印がありません`);
   const next = html.replace(/\/\*CARDS_BEGIN\*\/[\s\S]*?\/\*CARDS_END\*\//, `/*CARDS_BEGIN*/\n${lines.join("\n")}\n/*CARDS_END*/`);
   fs.writeFileSync(file, next);
   console.error(`${lines.length}件で ${file} を更新しました`);
